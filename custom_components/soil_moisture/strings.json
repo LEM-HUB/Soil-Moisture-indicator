@@ -63,7 +63,23 @@
         "tree": "Tree",
         "bonsai": "Bonsai",
         "orchid": "Orchid",
-        "succulent": "Succulent / cactus"
+        "succulent": "Succulent / cactus",
+        "aloe_vera": "Aloe vera",
+        "agave": "Agave",
+        "snake_plant": "Snake plant",
+        "zz_plant": "ZZ plant",
+        "yucca": "Yucca",
+        "pothos": "Pothos",
+        "monstera": "Monstera",
+        "palm": "Indoor palm",
+        "bamboo": "Bamboo",
+        "peace_lily": "Peace lily",
+        "calathea": "Calathea",
+        "venus_flytrap": "Venus flytrap",
+        "air_plant": "Air plant (Tillandsia)",
+        "lavender": "Lavender",
+        "rosemary": "Rosemary",
+        "chili": "Chili"
       }
     }
   },

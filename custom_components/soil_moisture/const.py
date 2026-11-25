@@ -11,7 +11,7 @@ from dataclasses import dataclass
 DOMAIN = "soil_moisture"
 NAME = "Soil Moisture Indicator"
 MANUFACTURER = "Soil Moisture Indicator"
-VERSION = "1.0.1"
+VERSION = "1.1.0"
 
 CONF_SOURCE_ENTITY = "source_entity"
 CONF_PLANT_TYPE = "plant_type"
@@ -72,6 +72,22 @@ PLANT_PROFILES: dict[str, PlantProfile] = {
     "bonsai": PlantProfile("bonsai", 50.0, 70.0, "mdi:tree"),
     "orchid": PlantProfile("orchid", 35.0, 55.0, "mdi:flower"),
     "succulent": PlantProfile("succulent", 15.0, 35.0, "mdi:cactus"),
+    "aloe_vera": PlantProfile("aloe_vera", 10.0, 30.0, "mdi:leaf"),
+    "agave": PlantProfile("agave", 10.0, 30.0, "mdi:cactus"),
+    "snake_plant": PlantProfile("snake_plant", 15.0, 30.0, "mdi:leaf"),
+    "zz_plant": PlantProfile("zz_plant", 15.0, 35.0, "mdi:leaf"),
+    "yucca": PlantProfile("yucca", 20.0, 40.0, "mdi:tree"),
+    "pothos": PlantProfile("pothos", 35.0, 55.0, "mdi:leaf"),
+    "monstera": PlantProfile("monstera", 40.0, 60.0, "mdi:leaf"),
+    "palm": PlantProfile("palm", 50.0, 70.0, "mdi:palm-tree"),
+    "bamboo": PlantProfile("bamboo", 55.0, 75.0, "mdi:tree"),
+    "peace_lily": PlantProfile("peace_lily", 55.0, 75.0, "mdi:flower"),
+    "calathea": PlantProfile("calathea", 60.0, 80.0, "mdi:leaf"),
+    "venus_flytrap": PlantProfile("venus_flytrap", 55.0, 80.0, "mdi:flower"),
+    "air_plant": PlantProfile("air_plant", 30.0, 50.0, "mdi:flower"),
+    "lavender": PlantProfile("lavender", 25.0, 45.0, "mdi:flower"),
+    "rosemary": PlantProfile("rosemary", 25.0, 45.0, "mdi:leaf"),
+    "chili": PlantProfile("chili", 55.0, 70.0, "mdi:chili-mild"),
 }
 
 PLANT_TYPES: list[str] = list(PLANT_PROFILES)

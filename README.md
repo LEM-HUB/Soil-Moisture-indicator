@@ -10,8 +10,8 @@ jeweiligen Pflanzentyp** als Sensor bereitstellt.
   extrapoliert ihn um einen einstellbaren Horizont (Standard: 12 h).
 - Liefert zusätzlich die **Stunden bis zum unteren Rand des Optimalbereichs** –
   also den Zeitpunkt, ab dem gegossen werden sollte.
-- Stellt den Optimalbereich je Pflanzentyp bereit (20 Profile, von Tomate bis
-  Sukkulente).
+- Stellt den Optimalbereich je Pflanzentyp bereit (36 Profile, von Tomate bis
+  Aloe Vera).
 - Läuft komplett lokal, ohne Cloud und ohne zusätzliche Abhängigkeiten.
 
 ## Installation
@@ -98,6 +98,22 @@ Pro Einrichtung entstehen ein Gerät und zwei Sensoren:
 | Bonsai | 50–70 |
 | Orchidee | 35–55 |
 | Sukkulente / Kaktus | 15–35 |
+| Aloe Vera | 10–30 |
+| Agave | 10–30 |
+| Bogenhanf | 15–30 |
+| Glücksfeder | 15–35 |
+| Yucca | 20–40 |
+| Efeutute | 35–55 |
+| Monstera | 40–60 |
+| Zimmerpalme | 50–70 |
+| Bambus | 55–75 |
+| Einblatt | 55–75 |
+| Korbmarante | 60–80 |
+| Venusfliegenfalle | 55–80 |
+| Tillandsie (Luftpflanze) | 30–50 |
+| Lavendel | 25–45 |
+| Rosmarin | 25–45 |
+| Chili | 55–70 |
 
 Die Bereiche sind Richtwerte für kapazitive/resistive Sensoren, die 0 % (trocken)
 bis 100 % (gesättigt) liefern. Sie liegen in `custom_components/soil_moisture/const.py`
