@@ -1,0 +1,84 @@
+"""Constants for the Soil Moisture Indicator integration.
+
+This module intentionally has no Home Assistant imports so it can be imported
+by the unit tests without a running Home Assistant instance.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+DOMAIN = "soil_moisture"
+NAME = "Soil Moisture Indicator"
+MANUFACTURER = "Soil Moisture Indicator"
+VERSION = "1.0.0"
+
+CONF_SOURCE_ENTITY = "source_entity"
+CONF_PLANT_TYPE = "plant_type"
+CONF_NAME = "name"
+CONF_PREDICTION_HORIZON = "prediction_horizon"
+CONF_HISTORY_HOURS = "history_hours"
+
+DEFAULT_PLANT_TYPE = "houseplant"
+DEFAULT_PREDICTION_HORIZON = 12.0
+DEFAULT_HISTORY_HOURS = 24.0
+DEFAULT_UPDATE_INTERVAL_MINUTES = 5
+
+MIN_PREDICTION_HORIZON = 1.0
+MAX_PREDICTION_HORIZON = 72.0
+MIN_HISTORY_HOURS = 2.0
+MAX_HISTORY_HOURS = 168.0
+
+MOISTURE_UNIT = "%"
+
+
+@dataclass(frozen=True)
+class PlantProfile:
+    """Optimal soil moisture range for one plant type.
+
+    All values are soil moisture percentages as reported by a capacitive or
+    resistive soil moisture sensor (0 % = air dry, 100 % = saturated).
+    """
+
+    key: str
+    optimal_min: float
+    optimal_max: float
+    icon: str = "mdi:leaf"
+
+    @property
+    def optimal_target(self) -> float:
+        """Return the middle of the optimal range."""
+        return round((self.optimal_min + self.optimal_max) / 2, 1)
+
+
+PLANT_PROFILES: dict[str, PlantProfile] = {
+    "houseplant": PlantProfile("houseplant", 40.0, 60.0, "mdi:potted-plant"),
+    "tomato": PlantProfile("tomato", 60.0, 80.0, "mdi:food-apple"),
+    "pepper": PlantProfile("pepper", 55.0, 70.0),
+    "cucumber": PlantProfile("cucumber", 65.0, 85.0),
+    "zucchini": PlantProfile("zucchini", 60.0, 80.0),
+    "lettuce": PlantProfile("lettuce", 60.0, 75.0),
+    "potato": PlantProfile("potato", 50.0, 70.0),
+    "strawberry": PlantProfile("strawberry", 55.0, 75.0),
+    "blueberry": PlantProfile("blueberry", 55.0, 75.0),
+    "citrus": PlantProfile("citrus", 45.0, 65.0, "mdi:fruit-citrus"),
+    "avocado": PlantProfile("avocado", 50.0, 70.0),
+    "rose": PlantProfile("rose", 50.0, 70.0, "mdi:flower"),
+    "herb": PlantProfile("herb", 45.0, 65.0),
+    "fern": PlantProfile("fern", 60.0, 80.0),
+    "lawn": PlantProfile("lawn", 40.0, 60.0, "mdi:grass"),
+    "hedge": PlantProfile("hedge", 40.0, 65.0, "mdi:tree"),
+    "tree": PlantProfile("tree", 40.0, 65.0, "mdi:tree"),
+    "bonsai": PlantProfile("bonsai", 50.0, 70.0, "mdi:tree"),
+    "orchid": PlantProfile("orchid", 35.0, 55.0, "mdi:flower"),
+    "succulent": PlantProfile("succulent", 15.0, 35.0, "mdi:cactus"),
+}
+
+PLANT_TYPES: list[str] = list(PLANT_PROFILES)
+
+
+def get_plant_profile(key: str | None) -> PlantProfile:
+    """Return the profile for ``key``, falling back to the default plant type."""
+    if key and key in PLANT_PROFILES:
+        return PLANT_PROFILES[key]
+    return PLANT_PROFILES[DEFAULT_PLANT_TYPE]

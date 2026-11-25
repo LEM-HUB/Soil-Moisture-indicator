@@ -1,0 +1,12 @@
+{
+  "domain": "soil_moisture",
+  "name": "Soil Moisture Indicator",
+  "codeowners": ["@LEM-HUB"],
+  "config_flow": true,
+  "documentation": "https://github.com/LEM-HUB/Soil-Moisture-indicator",
+  "issue_tracker": "https://github.com/LEM-HUB/Soil-Moisture-indicator/issues",
+  "after_dependencies": ["recorder"],
+  "integration_type": "helper",
+  "iot_class": "calculated",
+  "version": "1.0.0"
+}

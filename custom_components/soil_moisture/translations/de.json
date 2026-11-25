@@ -1,0 +1,80 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Bodenfeuchte-Indikator",
+        "description": "Wähle einen vorhandenen Bodenfeuchtesensor und den Pflanzentyp, der in diesem Boden wächst. Die Integration erstellt einen Sensor für die Feuchtigkeitsvorhersage und einen Sensor für die optimale Feuchtigkeit dieser Pflanze.",
+        "data": {
+          "source_entity": "Bodenfeuchtesensor",
+          "plant_type": "Pflanzentyp",
+          "name": "Name"
+        },
+        "data_description": {
+          "source_entity": "Sensor, der die aktuelle Bodenfeuchte in % liefert.",
+          "plant_type": "Bestimmt den optimalen Feuchtigkeitsbereich.",
+          "name": "Optionaler Name, zum Beispiel 'Tomaten Gewächshaus'."
+        }
+      }
+    },
+    "error": {
+      "entity_not_found": "Diese Entität existiert nicht."
+    },
+    "abort": {
+      "already_configured": "Dieser Sensor ist für diesen Pflanzentyp bereits eingerichtet."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Bodenfeuchte-Optionen",
+        "description": "Einstellungen für {source_entity}.",
+        "data": {
+          "plant_type": "Pflanzentyp",
+          "prediction_horizon": "Vorhersagehorizont",
+          "history_hours": "Historienfenster"
+        },
+        "data_description": {
+          "plant_type": "Bestimmt den optimalen Feuchtigkeitsbereich.",
+          "prediction_horizon": "Wie viele Stunden in die Zukunft der Vorhersagesensor schaut.",
+          "history_hours": "Wie viele Stunden Vergangenheit für den Feuchtigkeitstrend verwendet werden."
+        }
+      }
+    }
+  },
+  "selector": {
+    "plant_type": {
+      "options": {
+        "houseplant": "Zimmerpflanze",
+        "tomato": "Tomate",
+        "pepper": "Paprika",
+        "cucumber": "Gurke",
+        "zucchini": "Zucchini",
+        "lettuce": "Salat",
+        "potato": "Kartoffel",
+        "strawberry": "Erdbeere",
+        "blueberry": "Heidelbeere",
+        "citrus": "Zitruspflanze",
+        "avocado": "Avocado",
+        "rose": "Rose",
+        "herb": "Kräuter",
+        "fern": "Farn",
+        "lawn": "Rasen",
+        "hedge": "Hecke",
+        "tree": "Baum",
+        "bonsai": "Bonsai",
+        "orchid": "Orchidee",
+        "succulent": "Sukkulente / Kaktus"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "prediction": {
+        "name": "Feuchtigkeitsvorhersage"
+      },
+      "optimal": {
+        "name": "Optimale Feuchtigkeit"
+      }
+    }
+  }
+}

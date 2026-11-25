@@ -1,0 +1,80 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Soil moisture indicator",
+        "description": "Pick an existing soil moisture sensor and the plant type growing in that soil. The integration adds a moisture prediction sensor and a sensor for the optimal moisture of that plant type.",
+        "data": {
+          "source_entity": "Soil moisture sensor",
+          "plant_type": "Plant type",
+          "name": "Name"
+        },
+        "data_description": {
+          "source_entity": "Sensor that reports the current soil moisture in %.",
+          "plant_type": "Determines the optimal moisture range.",
+          "name": "Optional name, for example 'Tomatoes greenhouse'."
+        }
+      }
+    },
+    "error": {
+      "entity_not_found": "This entity does not exist."
+    },
+    "abort": {
+      "already_configured": "This sensor is already configured for this plant type."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Soil moisture options",
+        "description": "Settings for {source_entity}.",
+        "data": {
+          "plant_type": "Plant type",
+          "prediction_horizon": "Prediction horizon",
+          "history_hours": "History window"
+        },
+        "data_description": {
+          "plant_type": "Determines the optimal moisture range.",
+          "prediction_horizon": "How many hours into the future the prediction sensor looks.",
+          "history_hours": "How much past data is used to fit the moisture trend."
+        }
+      }
+    }
+  },
+  "selector": {
+    "plant_type": {
+      "options": {
+        "houseplant": "Houseplant",
+        "tomato": "Tomato",
+        "pepper": "Pepper",
+        "cucumber": "Cucumber",
+        "zucchini": "Zucchini",
+        "lettuce": "Lettuce",
+        "potato": "Potato",
+        "strawberry": "Strawberry",
+        "blueberry": "Blueberry",
+        "citrus": "Citrus",
+        "avocado": "Avocado",
+        "rose": "Rose",
+        "herb": "Herbs",
+        "fern": "Fern",
+        "lawn": "Lawn",
+        "hedge": "Hedge",
+        "tree": "Tree",
+        "bonsai": "Bonsai",
+        "orchid": "Orchid",
+        "succulent": "Succulent / cactus"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "prediction": {
+        "name": "Moisture prediction"
+      },
+      "optimal": {
+        "name": "Optimal moisture"
+      }
+    }
+  }
+}
