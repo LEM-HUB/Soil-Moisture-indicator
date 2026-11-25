@@ -12,7 +12,7 @@ jeweiligen Pflanzentyp** als Sensor bereitstellt.
   also den Zeitpunkt, ab dem gegossen werden sollte.
 - Liefert Sensoren für die aktuelle Feuchtigkeit, den linearen
   Trocknungsverlauf nach 1, 5 und 7 Tagen sowie eine 7-Tage-Vorhersage, die die
-  Wettervorhersage (`weather.get_forecast`) einbezieht.
+  Wettervorhersage (`weather.get_forecasts`) einbezieht.
 - Stellt den Optimalbereich je Pflanzentyp bereit (36 Profile, von Tomate bis
   Aloe Vera).
 - Läuft komplett lokal, ohne Cloud und ohne zusätzliche Abhängigkeiten.
@@ -169,7 +169,7 @@ Für die Sensoren mit festem Horizont gilt reine lineare Trocknung:
 
 ### Wetterbasierte 7-Tage-Vorhersage
 
-Für jeden Vorhersagetag der Wetterentität (`weather.get_forecast`, Typ
+Für jeden Vorhersagetag der Wetterentität (`weather.get_forecasts`, Typ
 `daily`) wird die Trocknung an Temperatur und Bewölkung angepasst und der
 Regen des Tages addiert:
 

@@ -305,7 +305,7 @@ class SoilMoistureCoordinator(DataUpdateCoordinator[SoilMoistureData]):
         try:
             response = await self.hass.services.async_call(
                 "weather",
-                "get_forecast",
+                "get_forecasts",
                 {"type": "daily", "entity_id": entity_id},
                 blocking=True,
                 return_response=True,
