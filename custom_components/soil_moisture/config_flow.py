@@ -43,7 +43,7 @@ def _plant_type_selector() -> selector.SelectSelector:
     )
 
 
-class SoilMoistureConfigFlow(ConfigFlow):
+class SoilMoistureConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle the UI setup of a soil moisture indicator."""
 
     VERSION = 1
