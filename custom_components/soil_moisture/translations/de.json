@@ -7,11 +7,13 @@
         "data": {
           "source_entity": "Bodenfeuchtesensor",
           "plant_type": "Pflanzentyp",
+          "weather_entity": "Wetterentität",
           "name": "Name"
         },
         "data_description": {
           "source_entity": "Sensor, der die aktuelle Bodenfeuchte in % liefert.",
           "plant_type": "Bestimmt den optimalen Feuchtigkeitsbereich.",
+          "weather_entity": "Optionale Wetterentität für die Wettervorhersage über 7 Tage. Leer lassen, um die einzige Wetterentität der Instanz zu verwenden.",
           "name": "Optionaler Name, zum Beispiel 'Tomaten Gewächshaus'."
         }
       }
@@ -31,12 +33,14 @@
         "data": {
           "plant_type": "Pflanzentyp",
           "prediction_horizon": "Vorhersagehorizont",
-          "history_hours": "Historienfenster"
+          "history_hours": "Historienfenster",
+          "weather_entity": "Wetterentität"
         },
         "data_description": {
           "plant_type": "Bestimmt den optimalen Feuchtigkeitsbereich.",
           "prediction_horizon": "Wie viele Stunden in die Zukunft der Vorhersagesensor schaut.",
-          "history_hours": "Wie viele Stunden Vergangenheit für den Feuchtigkeitstrend verwendet werden."
+          "history_hours": "Wie viele Stunden Vergangenheit für den Feuchtigkeitstrend verwendet werden.",
+          "weather_entity": "Wird für die Wettervorhersage über 7 Tage genutzt. Leer bedeutet: die einzige Wetterentität der Instanz."
         }
       }
     }
@@ -85,6 +89,21 @@
   },
   "entity": {
     "sensor": {
+      "current": {
+        "name": "Aktuelle Feuchtigkeit"
+      },
+      "moisture_1d": {
+        "name": "Feuchtigkeit in 1 Tag"
+      },
+      "moisture_5d": {
+        "name": "Feuchtigkeit in 5 Tagen"
+      },
+      "moisture_7d": {
+        "name": "Feuchtigkeit in 7 Tagen"
+      },
+      "weather_forecast": {
+        "name": "Feuchtigkeit in 7 Tagen (Wettervorhersage)"
+      },
       "prediction": {
         "name": "Feuchtigkeitsvorhersage"
       },

@@ -33,6 +33,15 @@ def test_all_profiles_have_a_sane_range():
         assert profile.icon.startswith("mdi:")
 
 
+def test_forecast_sensor_horizons():
+    assert const.FORECAST_SENSORS == {
+        "moisture_1d": 1.0,
+        "moisture_5d": 5.0,
+        "moisture_7d": 7.0,
+    }
+    assert const.WEATHER_FORECAST_DAYS == 7.0
+
+
 def test_plant_types_match_profiles():
     assert const.PLANT_TYPES == list(const.PLANT_PROFILES)
     assert const.DEFAULT_PLANT_TYPE in const.PLANT_PROFILES

@@ -11,13 +11,14 @@ from dataclasses import dataclass
 DOMAIN = "soil_moisture"
 NAME = "Soil Moisture Indicator"
 MANUFACTURER = "Soil Moisture Indicator"
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 
 CONF_SOURCE_ENTITY = "source_entity"
 CONF_PLANT_TYPE = "plant_type"
 CONF_NAME = "name"
 CONF_PREDICTION_HORIZON = "prediction_horizon"
 CONF_HISTORY_HOURS = "history_hours"
+CONF_WEATHER_ENTITY = "weather_entity"
 
 DEFAULT_PLANT_TYPE = "houseplant"
 DEFAULT_PREDICTION_HORIZON = 12.0
@@ -30,6 +31,19 @@ MIN_HISTORY_HOURS = 2.0
 MAX_HISTORY_HOURS = 168.0
 
 MOISTURE_UNIT = "%"
+
+# Fixed forecast sensors, mapping their translation key to the number of days.
+FORECAST_SENSORS: dict[str, float] = {
+    "moisture_1d": 1.0,
+    "moisture_5d": 5.0,
+    "moisture_7d": 7.0,
+}
+
+# Horizon of the forecast sensor that uses the weather forecast.
+WEATHER_FORECAST_DAYS = 7.0
+
+# The weather forecast is cached for this long between coordinator updates.
+WEATHER_FORECAST_CACHE_MINUTES = 30
 
 
 @dataclass(frozen=True)

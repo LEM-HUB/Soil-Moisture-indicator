@@ -10,6 +10,9 @@ jeweiligen Pflanzentyp** als Sensor bereitstellt.
   extrapoliert ihn um einen einstellbaren Horizont (Standard: 12 h).
 - Liefert zusätzlich die **Stunden bis zum unteren Rand des Optimalbereichs** –
   also den Zeitpunkt, ab dem gegossen werden sollte.
+- Liefert Sensoren für die aktuelle Feuchtigkeit, den linearen
+  Trocknungsverlauf nach 1, 5 und 7 Tagen sowie eine 7-Tage-Vorhersage, die die
+  Wettervorhersage (`weather.get_forecast`) einbezieht.
 - Stellt den Optimalbereich je Pflanzentyp bereit (36 Profile, von Tomate bis
   Aloe Vera).
 - Läuft komplett lokal, ohne Cloud und ohne zusätzliche Abhängigkeiten.
@@ -35,19 +38,29 @@ starten.
    „Soil Moisture Indicator".
 2. Bodenfeuchtesensor auswählen.
 3. Pflanzentyp wählen (bestimmt den Optimalbereich).
-4. Optional einen Namen vergeben (z. B. „Tomaten Gewächshaus").
+4. Optional eine Wetterentität für die wetterbasierte 7-Tage-Vorhersage
+   wählen. Ohne Auswahl wird die einzige Wetterentität der Instanz genutzt.
+5. Optional einen Namen vergeben (z. B. „Tomaten Gewächshaus").
 
 Über *Konfigurieren* an der Integration lassen sich Pflanzentyp,
 Vorhersagehorizont (1–72 h) und Historienfenster (2–168 h) jederzeit ändern.
 
 ## Entitäten
 
-Pro Einrichtung entstehen ein Gerät und zwei Sensoren:
+Pro Einrichtung entstehen ein Gerät und sieben Sensoren:
 
 | Entität | Einheit | Bedeutung |
 | --- | --- | --- |
+| `sensor.<name>_aktuelle_feuchtigkeit` | % | Aktueller Messwert des Quellsensors |
+| `sensor.<name>_feuchtigkeit_in_1_tag` | % | Linearer Trocknungsverlauf nach 24 h |
+| `sensor.<name>_feuchtigkeit_in_5_tagen` | % | Linearer Trocknungsverlauf nach 120 h |
+| `sensor.<name>_feuchtigkeit_in_7_tagen` | % | Linearer Trocknungsverlauf nach 168 h |
+| `sensor.<name>_feuchtigkeit_in_7_tagen_wettervorhersage` | % | 7 Tage inklusive Wettervorhersage |
 | `sensor.<name>_feuchtigkeitsvorhersage` | % | Vorhergesagte Bodenfeuchte nach dem eingestellten Horizont |
 | `sensor.<name>_optimale_feuchtigkeit` | % | Mitte des Optimalbereichs der Pflanze |
+
+Die Entity-IDs leiten sich aus dem vergebenen Namen und der Sprache der
+Instanz ab; die Tabelle zeigt die deutschen IDs.
 
 ### Attribute der Vorhersage
 
@@ -119,6 +132,21 @@ Die Bereiche sind Richtwerte für kapazitive/resistive Sensoren, die 0 % (trocke
 bis 100 % (gesättigt) liefern. Sie liegen in `custom_components/soil_moisture/const.py`
 und lassen sich dort leicht an den eigenen Sensor anpassen.
 
+### Attribute der Vorhersagesensoren
+
+| Attribut | Beschreibung |
+| --- | --- |
+| `days` / `hours` | Horizont des Sensors |
+| `basis` | `linear_drying` oder `weather_forecast` |
+| `current_moisture` | Aktueller Messwert |
+| `trend_per_hour` | Steigung in Prozentpunkten pro Stunde |
+| `trend_direction` | `falling`, `stable` oder `rising` |
+| `confidence` | Bestimmtheitsmaß R² der Trendgeraden (0–1) |
+| `samples` | Anzahl der Messpunkte im Fit |
+| `weather_entity` | Genutzte Wetterentität (nur wetterbasierter Sensor) |
+| `forecast_days_used` | Anzahl der verwendeten Vorhersagetage |
+| `forecast_error` | Grund, falls keine Wettervorhersage vorliegt |
+
 ## Wie die Vorhersage funktioniert
 
 1. Bei jedem Update (alle 5 Minuten) wird der Sensorwert gelesen und als
@@ -132,6 +160,32 @@ und lassen sich dort leicht an den eigenen Sensor anpassen.
    0–100 %.
 5. Aus der Steigung ergibt sich die Zeit bis zum unteren Rand des
    Optimalbereichs – die praktische „Gießen in …"-Angabe.
+
+### Feste Horizonte: 1, 5 und 7 Tage
+
+Für die Sensoren mit festem Horizont gilt reine lineare Trocknung:
+
+`Wert = aktueller Wert + Steigung × 24 × Tage`, begrenzt auf 0–100 %.
+
+### Wetterbasierte 7-Tage-Vorhersage
+
+Für jeden Vorhersagetag der Wetterentität (`weather.get_forecast`, Typ
+`daily`) wird die Trocknung an Temperatur und Bewölkung angepasst und der
+Regen des Tages addiert:
+
+`Änderung = Steigung × 24 × Temperaturfaktor × Wolkenfaktor + Regenzuschlag`
+
+| Größe | Formel |
+| --- | --- |
+| Temperaturfaktor | `1 + 0,03 × (Tageshöchsttemperatur − 20 °C)`, begrenzt auf 0,5–2,0 |
+| Wolkenfaktor | `1 − 0,3 × Bewölkung/100` (0,7 bei voller Bewölkung) |
+| Regenzuschlag | `2 Prozentpunkte pro mm`, maximal 40 pro Tag |
+
+Fehlende Vorhersagetage werden linear fortgeschrieben. Liegt keine
+Wettervorhersage vor, bleibt der Sensor `unknown` und nennt den Grund im
+Attribut `forecast_error` (`no_weather_entity`, `multiple_weather_entities`,
+`empty_forecast` oder `service_error: …`). Die Konstanten stehen in
+`custom_components/soil_moisture/weather.py`.
 
 Für einen belastbaren Trend sind mindestens 3 Messpunkte über mindestens
 30 Minuten nötig; bei sehr trägen Sensoren kann das Historienfenster erhöht

@@ -7,11 +7,13 @@
         "data": {
           "source_entity": "Soil moisture sensor",
           "plant_type": "Plant type",
+          "weather_entity": "Weather entity",
           "name": "Name"
         },
         "data_description": {
           "source_entity": "Sensor that reports the current soil moisture in %.",
           "plant_type": "Determines the optimal moisture range.",
+          "weather_entity": "Optional weather entity for the weather based 7 day forecast. Leave empty to use the only weather entity of your instance.",
           "name": "Optional name, for example 'Tomatoes greenhouse'."
         }
       }
@@ -31,12 +33,14 @@
         "data": {
           "plant_type": "Plant type",
           "prediction_horizon": "Prediction horizon",
-          "history_hours": "History window"
+          "history_hours": "History window",
+          "weather_entity": "Weather entity"
         },
         "data_description": {
           "plant_type": "Determines the optimal moisture range.",
           "prediction_horizon": "How many hours into the future the prediction sensor looks.",
-          "history_hours": "How much past data is used to fit the moisture trend."
+          "history_hours": "How much past data is used to fit the moisture trend.",
+          "weather_entity": "Used for the weather based 7 day forecast. Empty means the only weather entity of your instance."
         }
       }
     }
@@ -85,6 +89,21 @@
   },
   "entity": {
     "sensor": {
+      "current": {
+        "name": "Current moisture"
+      },
+      "moisture_1d": {
+        "name": "Moisture in 1 day"
+      },
+      "moisture_5d": {
+        "name": "Moisture in 5 days"
+      },
+      "moisture_7d": {
+        "name": "Moisture in 7 days"
+      },
+      "weather_forecast": {
+        "name": "Moisture in 7 days (weather forecast)"
+      },
       "prediction": {
         "name": "Moisture prediction"
       },

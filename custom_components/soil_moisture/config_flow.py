@@ -24,6 +24,7 @@ from .const import (
     DEFAULT_HISTORY_HOURS,
     DEFAULT_PLANT_TYPE,
     DEFAULT_PREDICTION_HORIZON,
+    CONF_WEATHER_ENTITY,
     DOMAIN,
     MAX_HISTORY_HOURS,
     MAX_PREDICTION_HORIZON,
@@ -40,6 +41,22 @@ def _plant_type_selector() -> selector.SelectSelector:
             mode=selector.SelectSelectorMode.DROPDOWN,
             translation_key=CONF_PLANT_TYPE,
         )
+    )
+
+
+class _OptionalWeatherSelector(selector.EntitySelector):
+    """Weather entity selector that treats an empty selection as automatic."""
+
+    def __call__(self, data: Any) -> str | None:
+        """Validate the selection, allowing it to be empty."""
+        if data is None or data == "":
+            return None
+        return super().__call__(data)
+
+
+def _weather_selector() -> _OptionalWeatherSelector:
+    return _OptionalWeatherSelector(
+        selector.EntitySelectorConfig(domain="weather")
     )
 
 
@@ -74,7 +91,14 @@ class SoilMoistureConfigFlow(ConfigFlow, domain=DOMAIN):
                 title = (user_input.get(CONF_NAME) or "").strip()
                 if not title:
                     title = f"{source_state.name} ({plant_type})"
-                return self.async_create_entry(title=title, data=user_input)
+                return self.async_create_entry(
+                    title=title,
+                    data={
+                        **user_input,
+                        CONF_WEATHER_ENTITY: user_input.get(CONF_WEATHER_ENTITY)
+                        or None,
+                    },
+                )
 
         schema = vol.Schema(
             {
@@ -84,6 +108,7 @@ class SoilMoistureConfigFlow(ConfigFlow, domain=DOMAIN):
                 vol.Required(
                     CONF_PLANT_TYPE, default=DEFAULT_PLANT_TYPE
                 ): _plant_type_selector(),
+                vol.Optional(CONF_WEATHER_ENTITY): _weather_selector(),
                 vol.Optional(CONF_NAME, default=""): selector.TextSelector(),
             }
         )
@@ -101,7 +126,13 @@ class SoilMoistureOptionsFlow(OptionsFlow):
         """Show and store the options."""
         entry = self.config_entry
         if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
+            return self.async_create_entry(
+                title="",
+                data={
+                    **user_input,
+                    CONF_WEATHER_ENTITY: user_input.get(CONF_WEATHER_ENTITY) or None,
+                },
+            )
 
         plant_type = entry.options.get(
             CONF_PLANT_TYPE, entry.data.get(CONF_PLANT_TYPE, DEFAULT_PLANT_TYPE)
@@ -110,6 +141,16 @@ class SoilMoistureOptionsFlow(OptionsFlow):
             CONF_PREDICTION_HORIZON, DEFAULT_PREDICTION_HORIZON
         )
         history_hours = entry.options.get(CONF_HISTORY_HOURS, DEFAULT_HISTORY_HOURS)
+        weather_entity = entry.options.get(
+            CONF_WEATHER_ENTITY, entry.data.get(CONF_WEATHER_ENTITY)
+        )
+        weather_field = (
+            vol.Optional(
+                CONF_WEATHER_ENTITY, description={"suggested_value": weather_entity}
+            )
+            if weather_entity
+            else vol.Optional(CONF_WEATHER_ENTITY)
+        )
 
         schema = vol.Schema(
             {
@@ -138,6 +179,7 @@ class SoilMoistureOptionsFlow(OptionsFlow):
                         mode=selector.NumberSelectorMode.BOX,
                     )
                 ),
+                weather_field: _weather_selector(),
             }
         )
         return self.async_show_form(

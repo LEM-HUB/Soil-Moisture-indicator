@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from functools import partial
 
@@ -19,16 +19,20 @@ from .const import (
     CONF_PLANT_TYPE,
     CONF_PREDICTION_HORIZON,
     CONF_SOURCE_ENTITY,
+    CONF_WEATHER_ENTITY,
     DEFAULT_HISTORY_HOURS,
     DEFAULT_PLANT_TYPE,
     DEFAULT_PREDICTION_HORIZON,
     DEFAULT_UPDATE_INTERVAL_MINUTES,
     DOMAIN,
+    FORECAST_SENSORS,
     MAX_HISTORY_HOURS,
     MAX_PREDICTION_HORIZON,
     MIN_HISTORY_HOURS,
     MIN_PREDICTION_HORIZON,
     PlantProfile,
+    WEATHER_FORECAST_CACHE_MINUTES,
+    WEATHER_FORECAST_DAYS,
     get_plant_profile,
 )
 from .predict import (
@@ -38,6 +42,7 @@ from .predict import (
     linear_trend,
     predicted_value,
 )
+from .weather import DailyForecast, project_linear, project_with_forecast
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -55,6 +60,15 @@ class SoilMoistureData:
     status: str = "unknown"
     sample_count: int = 0
     last_reading: datetime | None = None
+    forecasts: dict[str, float] = field(default_factory=dict)
+    """Linear forecasts in percent, keyed by the sensor translation key."""
+    weather_forecast: float | None = None
+    """Forecast for one week that also uses the weather forecast."""
+    weather_entity: str | None = None
+    weather_days: int = 0
+    """Number of forecast days that were available and used."""
+    weather_error: str | None = None
+    """Why no weather forecast was used; ``None`` when one was available."""
 
 
 def _numeric_value(state: State) -> float | None:
@@ -79,6 +93,17 @@ def _as_hours(value: object, fallback: float, minimum: float, maximum: float) ->
     return max(minimum, min(maximum, number))
 
 
+def _optional_float(value: object) -> float | None:
+    """Coerce a forecast value to a float, ignoring missing or NaN values."""
+    if value is None:
+        return None
+    try:
+        number = float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+    return number if number == number else None
+
+
 class SoilMoistureCoordinator(DataUpdateCoordinator[SoilMoistureData]):
     """Poll one moisture sensor, keep a short sample history and predict the trend."""
 
@@ -88,6 +113,9 @@ class SoilMoistureCoordinator(DataUpdateCoordinator[SoilMoistureData]):
         self.source_entity: str = entry.data[CONF_SOURCE_ENTITY]
         self._samples: deque[tuple[float, float]] = deque(maxlen=MAX_SAMPLES)
         self._history_loaded = False
+        self._forecast: list[DailyForecast] | None = None
+        self._forecast_time: datetime | None = None
+        self._forecast_error: str | None = None
         super().__init__(
             hass,
             _LOGGER,
@@ -107,6 +135,21 @@ class SoilMoistureCoordinator(DataUpdateCoordinator[SoilMoistureData]):
     def profile(self) -> PlantProfile:
         """Optimal moisture profile for the configured plant type."""
         return get_plant_profile(self.plant_type)
+
+    @property
+    def weather_entity(self) -> str | None:
+        """Weather entity used for the forecast, if any.
+
+        Falls back to the only weather entity of the instance when none is
+        configured explicitly.
+        """
+        configured = self.entry.options.get(
+            CONF_WEATHER_ENTITY, self.entry.data.get(CONF_WEATHER_ENTITY)
+        )
+        if configured:
+            return str(configured)
+        weather_entities = self.hass.states.async_entity_ids("weather")
+        return weather_entities[0] if len(weather_entities) == 1 else None
 
     @property
     def prediction_horizon(self) -> float:
@@ -165,6 +208,25 @@ class SoilMoistureCoordinator(DataUpdateCoordinator[SoilMoistureData]):
             predicted = current
             hours_until_min = None
 
+        slope = trend.slope if trend is not None else 0.0
+        forecasts = {
+            key: round(project_linear(current, slope, days), 1)
+            for key, days in FORECAST_SENSORS.items()
+        }
+
+        forecast, forecast_error = await self._async_weather_forecast()
+        if forecast:
+            weather_forecast = round(
+                project_with_forecast(
+                    current, slope, forecast, WEATHER_FORECAST_DAYS
+                ),
+                1,
+            )
+            weather_days = min(len(forecast), int(WEATHER_FORECAST_DAYS))
+        else:
+            weather_forecast = None
+            weather_days = 0
+
         return SoilMoistureData(
             current=round(current, 1),
             predicted=round(predicted, 1),
@@ -173,6 +235,11 @@ class SoilMoistureCoordinator(DataUpdateCoordinator[SoilMoistureData]):
             status=classify(current, profile.optimal_min, profile.optimal_max),
             sample_count=len(samples),
             last_reading=now,
+            forecasts=forecasts,
+            weather_forecast=weather_forecast,
+            weather_entity=self.weather_entity,
+            weather_days=weather_days,
+            weather_error=forecast_error,
         )
 
     async def _async_history_samples(self) -> list[tuple[float, float]]:
@@ -216,6 +283,61 @@ class SoilMoistureCoordinator(DataUpdateCoordinator[SoilMoistureData]):
             if value is not None:
                 samples.append((historic_state.last_updated.timestamp(), value))
         return samples
+
+    async def _async_weather_forecast(
+        self,
+    ) -> tuple[list[DailyForecast] | None, str | None]:
+        """Return the daily forecast of the weather entity, cached for a while."""
+        entity_id = self.weather_entity
+        if entity_id is None:
+            weather_entities = self.hass.states.async_entity_ids("weather")
+            reason = "no_weather_entity" if not weather_entities else "multiple_weather_entities"
+            return None, reason
+
+        now = dt_util.utcnow()
+        if (
+            self._forecast_time is not None
+            and now - self._forecast_time
+            < timedelta(minutes=WEATHER_FORECAST_CACHE_MINUTES)
+        ):
+            return self._forecast, self._forecast_error
+
+        try:
+            response = await self.hass.services.async_call(
+                "weather",
+                "get_forecast",
+                {"type": "daily", "entity_id": entity_id},
+                blocking=True,
+                return_response=True,
+            )
+        except Exception as err:  # noqa: BLE001 - the forecast is optional
+            _LOGGER.debug(
+                "Could not load a weather forecast from %s",
+                entity_id,
+                exc_info=True,
+            )
+            self._forecast = None
+            self._forecast_time = None
+            self._forecast_error = f"service_error: {err}"
+            return None, self._forecast_error
+
+        # Entity services return their response keyed by entity id, plain
+        # services return it directly; accept both shapes.
+        payload = response or {}
+        entity_response = payload.get(entity_id) or payload
+        entries = entity_response.get("forecast") or []
+        forecast = [
+            DailyForecast(
+                temperature=_optional_float(entry.get("temperature")),
+                precipitation=_optional_float(entry.get("precipitation")),
+                cloud_coverage=_optional_float(entry.get("cloud_coverage")),
+            )
+            for entry in entries
+        ]
+        self._forecast = forecast or None
+        self._forecast_time = now
+        self._forecast_error = None if forecast else "empty_forecast"
+        return self._forecast, self._forecast_error
 
     def _prune_samples(self, now: float) -> None:
         """Drop samples older than the configured history window."""
