@@ -120,10 +120,18 @@
     },
     "binary_sensor": {
       "watering_required": {
-        "name": "Watering required"
+        "name": "Watering required",
+        "state": {
+          "off": "No",
+          "on": "Yes"
+        }
       },
       "data_stale": {
-        "name": "Sensor data stale"
+        "name": "Sensor data stale",
+        "state": {
+          "off": "Up to date",
+          "on": "Stale"
+        }
       }
     }
   }

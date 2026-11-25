@@ -120,10 +120,18 @@
     },
     "binary_sensor": {
       "watering_required": {
-        "name": "Gießen nötig"
+        "name": "Gießen nötig",
+        "state": {
+          "off": "Nein",
+          "on": "Ja"
+        }
       },
       "data_stale": {
-        "name": "Sensordaten veraltet"
+        "name": "Sensordaten veraltet",
+        "state": {
+          "off": "Aktuell",
+          "on": "Veraltet"
+        }
       }
     }
   }

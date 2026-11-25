@@ -73,6 +73,13 @@ Pro Einrichtung entstehen ein Gerät, acht Sensoren und zwei Binärsensoren:
 Die Entity-IDs leiten sich aus dem vergebenen Namen und der Sprache der
 Instanz ab; die Tabelle zeigt die deutschen IDs.
 
+Die Zustände der Binärsensoren sind intern `on`/`off`. Angezeigt werden
+übersetzte Texte: `binary_sensor.<name>_giessen_noetig` zeigt `Ja`/`Nein`,
+`binary_sensor.<name>_sensordaten_veraltet` zeigt `Veraltet`/`Aktuell`
+(englisch `Yes`/`No` bzw. `Stale`/`Up to date`). Beide Sensoren tragen keine
+`moisture`-Zustandsklasse, weil diese den Boden selbst beschreibt und `on` als
+„nass“ beschriften würde – also genau umgekehrt zur Bedeutung hier.
+
 ### Attribute der Vorhersage
 
 | Attribut | Beschreibung |

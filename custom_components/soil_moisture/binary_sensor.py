@@ -67,9 +67,14 @@ class _SoilMoistureBinaryBase(
 
 
 class SoilMoistureWateringRequiredSensor(_SoilMoistureBinaryBase):
-    """On when the soil is drier than the optimal range."""
+    """On when the soil is drier than the optimal range.
 
-    _attr_device_class = BinarySensorDeviceClass.MOISTURE
+    Intentionally without a device class: ``moisture`` describes the soil
+    itself and labels ``on`` as wet and ``off`` as dry, which is the opposite of
+    what this sensor reports. Its state texts come from the ``state``
+    translations instead (yes/no, or Ja/Nein in German).
+    """
+
     _attr_icon = "mdi:watering-can"
 
     def __init__(
