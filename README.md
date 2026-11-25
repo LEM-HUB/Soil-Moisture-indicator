@@ -12,7 +12,11 @@ jeweiligen Pflanzentyp** als Sensor bereitstellt.
   also den Zeitpunkt, ab dem gegossen werden sollte.
 - Liefert Sensoren für die aktuelle Feuchtigkeit, den linearen
   Trocknungsverlauf nach 1, 5 und 7 Tagen sowie eine 7-Tage-Vorhersage, die die
-  Wettervorhersage (`weather.get_forecasts`) einbezieht.
+  Wettervorhersage (`weather.get_forecasts`) stündlich einbezieht.
+- Erkennt Gießen an einem plötzlichen Feuchtesprung und startet den Trend neu,
+  damit die Prognose nicht durch die Wassergabe verfälscht wird.
+- Berechnet aus dem Substratvolumen die nötige Wassermenge in Millilitern und
+  meldet per Binärsensor, wann gegossen werden muss bzw. Daten fehlen.
 - Stellt den Optimalbereich je Pflanzentyp bereit (36 Profile, von Tomate bis
   Aloe Vera).
 - Läuft komplett lokal, ohne Cloud und ohne zusätzliche Abhängigkeiten.
@@ -40,14 +44,18 @@ starten.
 3. Pflanzentyp wählen (bestimmt den Optimalbereich).
 4. Optional eine Wetterentität für die wetterbasierte 7-Tage-Vorhersage
    wählen. Ohne Auswahl wird die einzige Wetterentität der Instanz genutzt.
-5. Optional einen Namen vergeben (z. B. „Tomaten Gewächshaus").
+5. Optional das Substratvolumen in Litern eintragen (z. B. 5 für einen 5-l-Topf).
+   Daraus berechnet die Integration die nötige Gießmenge; `0` schaltet die
+   Mengenangabe ab.
+6. Optional einen Namen vergeben (z. B. „Tomaten Gewächshaus").
 
 Über *Konfigurieren* an der Integration lassen sich Pflanzentyp,
-Vorhersagehorizont (1–72 h) und Historienfenster (2–168 h) jederzeit ändern.
+Vorhersagehorizont (1–72 h), Historienfenster (2–168 h) und Substratvolumen
+jederzeit ändern.
 
 ## Entitäten
 
-Pro Einrichtung entstehen ein Gerät und sieben Sensoren:
+Pro Einrichtung entstehen ein Gerät, acht Sensoren und zwei Binärsensoren:
 
 | Entität | Einheit | Bedeutung |
 | --- | --- | --- |
@@ -58,6 +66,9 @@ Pro Einrichtung entstehen ein Gerät und sieben Sensoren:
 | `sensor.<name>_feuchtigkeit_in_7_tagen_wettervorhersage` | % | 7 Tage inklusive Wettervorhersage |
 | `sensor.<name>_feuchtigkeitsvorhersage` | % | Vorhergesagte Bodenfeuchte nach dem eingestellten Horizont |
 | `sensor.<name>_optimale_feuchtigkeit` | % | Mitte des Optimalbereichs der Pflanze |
+| `sensor.<name>_benoetigtes_wasser` | mL | Wassermenge bis zur Mitte des Optimalbereichs (nur mit Substratvolumen) |
+| `binary_sensor.<name>_giessen_noetig` | – | `on`, sobald die Feuchte unter den Optimalbereich fällt |
+| `binary_sensor.<name>_sensordaten_veraltet` | – | `on`, wenn der Quellsensor länger als 30 Minuten nichts liefert |
 
 Die Entity-IDs leiten sich aus dem vergebenen Namen und der Sprache der
 Instanz ab; die Tabelle zeigt die deutschen IDs.
@@ -77,6 +88,10 @@ Instanz ab; die Tabelle zeigt die deutschen IDs.
 | `samples` | Anzahl der Messpunkte im Fit |
 | `moisture_status` | `below_optimal`, `optimal` oder `above_optimal` |
 | `last_reading` | Zeitpunkt der letzten Messung |
+| `last_watering` | Zeitpunkt des zuletzt erkannten Gießens |
+| `minutes_since_watering` | Minuten seit dem letzten Gießen |
+| `source_last_updated` | Letzte Zustandsänderung des Quellsensors |
+| `source_battery` | Batteriestand des Quellsensors, falls gemeldet |
 
 ### Attribute der optimalen Feuchtigkeit
 
@@ -86,6 +101,15 @@ Instanz ab; die Tabelle zeigt die deutschen IDs.
 | `optimal_min` / `optimal_max` | Unter- und Obergrenze in % |
 | `current_moisture` | Aktueller Messwert |
 | `moisture_status` | Aktueller Zustand relativ zum Optimalbereich |
+
+### Attribute der Gießmenge
+
+| Attribut | Beschreibung |
+| --- | --- |
+| `container_volume_litres` | Eingetragenes Substratvolumen |
+| `target_moisture` | Zielwert (Mitte des Optimalbereichs) |
+| `water_needed_litres` | Benötigte Menge in Litern |
+| `current_moisture` | Aktueller Messwert |
 
 ## Pflanzenprofile
 
@@ -170,27 +194,55 @@ Für die Sensoren mit festem Horizont gilt reine lineare Trocknung:
 
 ### Wetterbasierte 7-Tage-Vorhersage
 
-Für jeden Vorhersagetag der Wetterentität (`weather.get_forecasts`, Typ
-`daily`) wird die Trocknung an Temperatur und Bewölkung angepasst und der
-Regen des Tages addiert. Liefert die Wetterentität keine Tagesvorhersage (Typ
-`daily`), wird ersatzweise die stündliche Vorhersage (Typ `hourly`) zu
-Kalendertagen zusammengefasst: Tagesmaximum der Temperatur, Summe des Regens,
-Mittel der Bewölkung. Das Attribut `forecast_kind` zeigt, welche Variante
-genutzt wurde.
+Bevorzugt wird die **stündliche** Vorhersage (`weather.get_forecasts`, Typ
+`hourly`): Für jede Stunde wird die Trocknung angepasst, der Regen der Stunde
+addiert und anschließend die fehlenden Stunden linear fortgeschrieben. Kann
+die Wetterentität nur Tageswerte (Typ `daily`), rechnet die Integration in
+Tagesschritten. Das Attribut `forecast_kind` zeigt, welche Variante genutzt
+wurde.
 
-`Änderung = Steigung × 24 × Temperaturfaktor × Wolkenfaktor + Regenzuschlag`
+`Änderung je Stunde = Steigung × Wetterfaktor + Regenzuschlag`
 
 | Größe | Formel |
 | --- | --- |
-| Temperaturfaktor | `1 + 0,03 × (Tageshöchsttemperatur − 20 °C)`, begrenzt auf 0,5–2,0 |
-| Wolkenfaktor | `1 − 0,3 × Bewölkung/100` (0,7 bei voller Bewölkung) |
+| Temperaturfaktor | `1 + 0,03 × (Temperatur − 20 °C)`, begrenzt auf 0,5–2,0 |
+| Verdunstungsfaktor | `Verdunstung / 0,05 mm/h`, begrenzt auf 0,3–3,0 – ersetzt Strahlung und Luftfeuchte |
+| Strahlungsfaktor | `1 + (Globalstrahlung − 300 W/m²) × 0,0005`, begrenzt auf 0,8–1,5 |
+| Wolkenfaktor | `1 − 0,3 × Bewölkung/100` (0,7 bei voller Bewölkung), nur ohne Strahlungswerte |
+| Luftfeuchtefaktor | `1 + (50 − relative Luftfeuchte) × 0,008`, begrenzt auf 0,6–1,4 – nur ohne Verdunstungswerte |
 | Regenzuschlag | `2 Prozentpunkte pro mm`, maximal 40 pro Tag |
 
-Fehlende Vorhersagetage werden linear fortgeschrieben. Liegt keine
+Fehlende Stunden bzw. Tage werden linear fortgeschrieben. Liegt keine
 Wettervorhersage vor, bleibt der Sensor `unknown` und nennt den Grund im
 Attribut `forecast_error` (`no_weather_entity`, `multiple_weather_entities`,
 `empty_forecast` oder `service_error: …`). Die Konstanten stehen in
 `custom_components/soil_moisture/weather.py`.
+
+### Gieß-Erkennung
+
+Steigt die Feuchte innerhalb von 30 Minuten um mindestens 5 Prozentpunkte,
+wertet die Integration das als Gießen: Der bisherige Verlauf wird verworfen,
+der Trend startet mit dem neuen Wert neu, und `last_watering` /
+`minutes_since_watering` erscheinen am Sensor für die aktuelle Feuchtigkeit.
+So verfälscht ein Wassergaben-Sprung nicht die Trocknungsprognose.
+
+### Gießmenge
+
+Mit eingetragenem Substratvolumen liefert `sensor.<name>_benoetigtes_wasser`
+die Wassermenge bis zur Mitte des Optimalbereichs:
+
+`ml = (Zielwert − aktuelle Feuchte) × Volumen in Litern × 10`
+
+Die Faustregel dahinter: 1 Prozentpunkt Feuchte in 1 Liter Substrat entspricht
+rund 10 ml Wasser. Ist die Feuchte bereits im Optimalbereich oder darüber,
+steht der Sensor auf `0`; ohne Volumen bleibt er `unknown`.
+
+### Diagnose
+
+`binary_sensor.<name>_sensordaten_veraltet` wird `on`, wenn der Quellsensor
+länger als 30 Minuten nicht aktualisiert wurde oder das Update fehlschlägt.
+Das Attribut `data_age_minutes` nennt das Alter der letzten Messung,
+`source_battery` den Batteriestand des Sensors, falls er einen meldet.
 
 Für einen belastbaren Trend sind mindestens 3 Messpunkte über mindestens
 30 Minuten nötig; bei sehr trägen Sensoren kann das Historienfenster erhöht
@@ -284,7 +336,9 @@ custom_components/soil_moisture/
   const.py         Konstanten und Pflanzenprofile
   coordinator.py   Sensorabfrage, Recorder-Historie, Trendberechnung
   predict.py       Trend-/Vorhersage-Mathematik (HA-frei)
-  sensor.py        Vorhersage- und Optimal-Sensor
+  weather.py       Wettermodell für die Trocknung (HA-frei)
+  sensor.py        Feuchte-, Vorhersage-, Optimal- und Gießmengen-Sensor
+  binary_sensor.py Gießen nötig und Diagnose
   manifest.json
   strings.json
   translations/    en, de

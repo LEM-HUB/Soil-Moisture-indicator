@@ -8,13 +8,15 @@
           "source_entity": "Bodenfeuchtesensor",
           "plant_type": "Pflanzentyp",
           "weather_entity": "Wetterentität",
-          "name": "Name"
+          "name": "Name",
+          "container_volume": "Substratvolumen"
         },
         "data_description": {
           "source_entity": "Sensor, der die aktuelle Bodenfeuchte in % liefert.",
           "plant_type": "Bestimmt den optimalen Feuchtigkeitsbereich.",
           "weather_entity": "Optionale Wetterentität für die Wettervorhersage über 7 Tage. Leer lassen, um die einzige Wetterentität der Instanz zu verwenden.",
-          "name": "Optionaler Name, zum Beispiel 'Tomaten Gewächshaus'."
+          "name": "Optionaler Name, zum Beispiel 'Tomaten Gewächshaus'.",
+          "container_volume": "Volumen des Substrats in Litern. Wird für die Berechnung der Gießmenge genutzt; 0 deaktiviert die Mengenangabe."
         }
       }
     },
@@ -34,13 +36,15 @@
           "plant_type": "Pflanzentyp",
           "prediction_horizon": "Vorhersagehorizont",
           "history_hours": "Historienfenster",
-          "weather_entity": "Wetterentität"
+          "weather_entity": "Wetterentität",
+          "container_volume": "Substratvolumen"
         },
         "data_description": {
           "plant_type": "Bestimmt den optimalen Feuchtigkeitsbereich.",
           "prediction_horizon": "Wie viele Stunden in die Zukunft der Vorhersagesensor schaut.",
           "history_hours": "Wie viele Stunden Vergangenheit für den Feuchtigkeitstrend verwendet werden.",
-          "weather_entity": "Wird für die Wettervorhersage über 7 Tage genutzt. Leer bedeutet: die einzige Wetterentität der Instanz."
+          "weather_entity": "Wird für die Wettervorhersage über 7 Tage genutzt. Leer bedeutet: die einzige Wetterentität der Instanz.",
+          "container_volume": "Volumen des Substrats in Litern. Wird für die Berechnung der Gießmenge genutzt; 0 deaktiviert die Mengenangabe."
         }
       }
     }
@@ -109,6 +113,17 @@
       },
       "optimal": {
         "name": "Optimale Feuchtigkeit"
+      },
+      "water_needed": {
+        "name": "Benötigtes Wasser"
+      }
+    },
+    "binary_sensor": {
+      "watering_required": {
+        "name": "Gießen nötig"
+      },
+      "data_stale": {
+        "name": "Sensordaten veraltet"
       }
     }
   }

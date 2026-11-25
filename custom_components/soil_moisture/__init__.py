@@ -13,7 +13,7 @@ from homeassistant.core import HomeAssistant
 from .const import DOMAIN
 from .coordinator import SoilMoistureCoordinator
 
-PLATFORMS: list[Platform] = [Platform.SENSOR]
+PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR]
 
 __all__ = ["DOMAIN", "PLATFORMS", "async_setup_entry", "async_unload_entry"]
 

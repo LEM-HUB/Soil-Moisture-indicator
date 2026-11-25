@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from typing import Sequence
 
 MIN_MOISTURE = 0.0
@@ -27,6 +27,24 @@ CLOUD_FACTOR_AT_FULL_COVER = 0.7
 RAIN_PERCENT_PER_MM = 2.0
 MAX_DAILY_RAIN_PERCENT = 40.0
 
+# Hourly drivers, used when the forecast has hourly detail.
+# Dry air dries the soil faster than humid air (50 % is the reference).
+HUMIDITY_REFERENCE = 50.0
+HUMIDITY_FACTOR_PER_PERCENT = 0.008
+MIN_HUMIDITY_FACTOR = 0.6
+MAX_HUMIDITY_FACTOR = 1.4
+
+# Solar irradiance in W/m²; 300 W/m² counts as an average hour.
+RADIATION_REFERENCE_W = 300.0
+RADIATION_FACTOR_PER_W = 0.0005
+MIN_RADIATION_FACTOR = 0.8
+MAX_RADIATION_FACTOR = 1.5
+
+# Reported evaporation in mm per hour; 0.05 mm/h counts as an average hour.
+EVAPORATION_REFERENCE_MM_H = 0.05
+MIN_EVAPORATION_FACTOR = 0.3
+MAX_EVAPORATION_FACTOR = 3.0
+
 
 @dataclass(frozen=True)
 class DailyForecast:
@@ -42,38 +60,30 @@ class DailyForecast:
     """Average cloud cover in percent."""
 
 
-def aggregate_hourly(
-    hours: Sequence[tuple[date, float | None, float | None, float | None]],
-) -> list[DailyForecast]:
-    """Combine hourly forecast values into one entry per calendar day.
+@dataclass(frozen=True)
+class HourlyForecast:
+    """One hour of weather forecast; every field is optional."""
 
-    ``hours`` holds ``(day, temperature, precipitation, cloud_coverage)``
-    tuples. The temperature is reduced to the daily maximum, precipitation is
-    summed and cloud coverage is averaged, matching what weather integrations
-    report for a daily forecast.
-    """
-    order: list[date] = []
-    days: dict[date, tuple[list[float], list[float], list[float]]] = {}
-    for day, temperature, precipitation, cloud_coverage in hours:
-        if day not in days:
-            days[day] = ([], [], [])
-            order.append(day)
-        temperatures, rains, clouds = days[day]
-        if temperature is not None and math.isfinite(temperature):
-            temperatures.append(temperature)
-        if precipitation is not None and math.isfinite(precipitation):
-            rains.append(precipitation)
-        if cloud_coverage is not None and math.isfinite(cloud_coverage):
-            clouds.append(cloud_coverage)
+    start: datetime | None = None
+    """Local start of the hour; used to cap the daily rain gain."""
 
-    return [
-        DailyForecast(
-            temperature=max(temperatures) if temperatures else None,
-            precipitation=sum(rains) if rains else None,
-            cloud_coverage=sum(clouds) / len(clouds) if clouds else None,
-        )
-        for temperatures, rains, clouds in (days[day] for day in order)
-    ]
+    temperature: float | None = None
+    """Temperature in °C."""
+
+    precipitation: float | None = None
+    """Rain or snow water equivalent in mm."""
+
+    cloud_coverage: float | None = None
+    """Cloud cover in percent."""
+
+    humidity: float | None = None
+    """Relative humidity in percent."""
+
+    sun_irradiance: float | None = None
+    """Global solar irradiance in W/m²."""
+
+    evaporation: float | None = None
+    """Reported evaporation in mm per hour."""
 
 
 def _clamp(value: float, minimum: float, maximum: float) -> float:
@@ -105,11 +115,62 @@ def cloud_factor(cloud_coverage: float | None) -> float:
     return 1.0 - (1.0 - CLOUD_FACTOR_AT_FULL_COVER) * coverage
 
 
+def humidity_factor(humidity: float | None) -> float:
+    """Factor for the drying speed at ``humidity`` percent relative humidity."""
+    if humidity is None or not math.isfinite(humidity):
+        return 1.0
+    return _clamp(
+        1.0 + (HUMIDITY_REFERENCE - humidity) * HUMIDITY_FACTOR_PER_PERCENT,
+        MIN_HUMIDITY_FACTOR,
+        MAX_HUMIDITY_FACTOR,
+    )
+
+
+def radiation_factor(sun_irradiance: float | None) -> float:
+    """Factor for the drying speed at ``sun_irradiance`` W/m²."""
+    if sun_irradiance is None or not math.isfinite(sun_irradiance):
+        return 1.0
+    return _clamp(
+        1.0 + (sun_irradiance - RADIATION_REFERENCE_W) * RADIATION_FACTOR_PER_W,
+        MIN_RADIATION_FACTOR,
+        MAX_RADIATION_FACTOR,
+    )
+
+
+def evaporation_factor(evaporation: float | None) -> float:
+    """Scale drying with the evaporation the weather service reports in mm/h."""
+    if evaporation is None or not math.isfinite(evaporation) or evaporation < 0:
+        return 1.0
+    return _clamp(
+        evaporation / EVAPORATION_REFERENCE_MM_H,
+        MIN_EVAPORATION_FACTOR,
+        MAX_EVAPORATION_FACTOR,
+    )
+
+
 def rain_gain(precipitation: float | None) -> float:
     """Moisture gain in percentage points for ``precipitation`` millimetres."""
     if precipitation is None or not math.isfinite(precipitation) or precipitation <= 0:
         return 0.0
     return min(MAX_DAILY_RAIN_PERCENT, precipitation * RAIN_PERCENT_PER_MM)
+
+
+def hour_factor(hour: HourlyForecast) -> float:
+    """Combined weather factor for one hour of drying.
+
+    A reported evaporation already includes temperature, wind and humidity, so
+    it is used on its own. Without evaporation the solar irradiance stands in
+    for sun and clouds; without both, the cloud cover is used. Humidity is only
+    added while evaporation is unknown, to avoid counting it twice.
+    """
+    factor = temperature_factor(hour.temperature)
+    if hour.evaporation is not None:
+        return factor * evaporation_factor(hour.evaporation)
+    if hour.sun_irradiance is not None:
+        factor *= radiation_factor(hour.sun_irradiance)
+    else:
+        factor *= cloud_factor(hour.cloud_coverage)
+    return factor * humidity_factor(hour.humidity)
 
 
 def daily_change(slope_per_hour: float, day: DailyForecast) -> float:
@@ -121,6 +182,11 @@ def daily_change(slope_per_hour: float, day: DailyForecast) -> float:
         * cloud_factor(day.cloud_coverage)
     )
     return drying + rain_gain(day.precipitation)
+
+
+def hourly_change(slope_per_hour: float, hour: HourlyForecast) -> float:
+    """Net moisture change in percentage points for one forecast hour."""
+    return slope_per_hour * hour_factor(hour) + rain_gain(hour.precipitation)
 
 
 def project_linear(current: float, slope_per_hour: float, days: float) -> float:
@@ -151,4 +217,41 @@ def project_with_forecast(
     remaining = days - used
     if remaining > 0:
         value = _clamp_moisture(value + slope_per_hour * 24 * remaining)
+    return value
+
+
+def project_with_hourly_forecast(
+    current: float,
+    slope_per_hour: float,
+    hours: Sequence[HourlyForecast],
+    days: float,
+) -> float:
+    """Project moisture hour by hour and fill missing hours with the trend.
+
+    The rain gain is still capped per calendar day, so a heavy hourly forecast
+    cannot refill the soil beyond the daily limit.
+    """
+    total_hours = max(1, int(round(days * 24)))
+    value = current
+    used = 0
+    rain_by_day: dict[date, float] = {}
+
+    for hour in hours:
+        if used >= total_hours:
+            break
+        rain = 0.0
+        if (
+            hour.precipitation is not None
+            and math.isfinite(hour.precipitation)
+            and hour.start is not None
+        ):
+            day = hour.start.date()
+            room = MAX_DAILY_RAIN_PERCENT - rain_by_day.get(day, 0.0)
+            rain = max(0.0, min(rain_gain(hour.precipitation), room))
+            rain_by_day[day] = rain_by_day.get(day, 0.0) + rain
+        value = _clamp_moisture(value + slope_per_hour * hour_factor(hour) + rain)
+        used += 1
+
+    if used < total_hours:
+        value = _clamp_moisture(value + slope_per_hour * (total_hours - used))
     return value

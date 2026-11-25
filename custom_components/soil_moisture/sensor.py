@@ -10,7 +10,7 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import PERCENTAGE
+from homeassistant.const import PERCENTAGE, UnitOfVolume
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -37,6 +37,7 @@ async def async_setup_entry(
             SoilMoistureWeatherForecastSensor(coordinator, entry),
             SoilMoisturePredictionSensor(coordinator, entry),
             SoilMoistureOptimalSensor(coordinator, entry),
+            SoilMoistureWaterNeededSensor(coordinator, entry),
         ]
     )
 
@@ -117,6 +118,17 @@ class SoilMoistureCurrentSensor(_SoilMoistureBase):
             attributes["last_reading"] = data.last_reading.isoformat(
                 timespec="seconds"
             )
+        if data.last_watering is not None:
+            attributes["last_watering"] = data.last_watering.isoformat(
+                timespec="seconds"
+            )
+            attributes["minutes_since_watering"] = data.minutes_since_watering
+        if data.source_last_updated is not None:
+            attributes["source_last_updated"] = data.source_last_updated.isoformat(
+                timespec="seconds"
+            )
+        if data.source_battery is not None:
+            attributes["source_battery"] = data.source_battery
         return attributes
 
 
@@ -257,4 +269,41 @@ class SoilMoistureOptimalSensor(_SoilMoistureBase):
             "current_moisture": data.current,
             "moisture_status": data.status,
             "source_entity": self.coordinator.source_entity,
+        }
+
+
+class SoilMoistureWaterNeededSensor(_SoilMoistureBase):
+    """Water needed to bring the soil back to the optimal moisture."""
+
+    _attr_icon = "mdi:watering-can"
+    _attr_device_class = SensorDeviceClass.VOLUME
+    _attr_native_unit_of_measurement = UnitOfVolume.MILLILITERS
+    _attr_state_class = None
+    _attr_suggested_display_precision = 0
+
+    def __init__(
+        self, coordinator: SoilMoistureCoordinator, entry: ConfigEntry
+    ) -> None:
+        super().__init__(coordinator, entry, "water_needed")
+
+    @property
+    def native_value(self) -> float | None:
+        """Millilitres needed to reach the middle of the optimal range."""
+        data = self._data
+        return None if data is None else data.water_needed_ml
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Expose the target, the substrate volume and the amount in litres."""
+        data = self._data or SoilMoistureData()
+        profile = self.coordinator.profile
+        return {
+            "container_volume_litres": data.container_volume,
+            "target_moisture": profile.optimal_target,
+            "current_moisture": data.current,
+            "water_needed_litres": (
+                None
+                if data.water_needed_ml is None
+                else round(data.water_needed_ml / 1000, 2)
+            ),
         }

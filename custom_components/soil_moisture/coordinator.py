@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import logging
+import math
 from collections import deque
 from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from functools import partial
 from typing import Sequence
 
@@ -16,21 +17,29 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from homeassistant.util import dt as dt_util
 
 from .const import (
+    CONF_CONTAINER_VOLUME,
     CONF_HISTORY_HOURS,
     CONF_PLANT_TYPE,
     CONF_PREDICTION_HORIZON,
     CONF_SOURCE_ENTITY,
     CONF_WEATHER_ENTITY,
+    DEFAULT_CONTAINER_VOLUME,
     DEFAULT_HISTORY_HOURS,
     DEFAULT_PLANT_TYPE,
     DEFAULT_PREDICTION_HORIZON,
     DEFAULT_UPDATE_INTERVAL_MINUTES,
     DOMAIN,
     FORECAST_SENSORS,
+    MAX_CONTAINER_VOLUME,
     MAX_HISTORY_HOURS,
     MAX_PREDICTION_HORIZON,
+    MIN_CONTAINER_VOLUME,
     MIN_HISTORY_HOURS,
     MIN_PREDICTION_HORIZON,
+    ML_PER_PERCENT_LITRE,
+    STALE_AFTER_MINUTES,
+    WATERING_JUMP_PERCENT,
+    WATERING_MAX_GAP_MINUTES,
     PlantProfile,
     WEATHER_FORECAST_CACHE_MINUTES,
     WEATHER_FORECAST_DAYS,
@@ -45,9 +54,10 @@ from .predict import (
 )
 from .weather import (
     DailyForecast,
-    aggregate_hourly,
+    HourlyForecast,
     project_linear,
     project_with_forecast,
+    project_with_hourly_forecast,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -77,6 +87,21 @@ class SoilMoistureData:
     """Why no weather forecast was used; ``None`` when one was available."""
     weather_kind: str | None = None
     """Whether ``daily`` or aggregated ``hourly`` forecast data was used."""
+    water_needed_ml: float | None = None
+    """Water in millilitres to reach the middle of the optimal range."""
+    container_volume: float = 0.0
+    """Substrate volume in litres, taken from the options."""
+    watering_required: bool = False
+    """Whether the moisture is below the optimal range."""
+    last_watering: datetime | None = None
+    """Last detected watering (a sudden jump in moisture)."""
+    minutes_since_watering: float | None = None
+    source_last_updated: datetime | None = None
+    """Last time the source sensor changed its state."""
+    source_battery: float | None = None
+    """Battery level of the source sensor, when it reports one."""
+    data_stale: bool = False
+    """Whether the source sensor stopped reporting."""
 
 
 def _numeric_value(state: State) -> float | None:
@@ -90,7 +115,7 @@ def _numeric_value(state: State) -> float | None:
     return value if value == value else None  # reject NaN
 
 
-def _as_hours(value: object, fallback: float, minimum: float, maximum: float) -> float:
+def _as_number(value: object, fallback: float, minimum: float, maximum: float) -> float:
     """Coerce an option to a float inside ``[minimum, maximum]``."""
     try:
         number = float(value)  # type: ignore[arg-type]
@@ -99,6 +124,15 @@ def _as_hours(value: object, fallback: float, minimum: float, maximum: float) ->
     if number != number:  # NaN
         return fallback
     return max(minimum, min(maximum, number))
+
+
+def _source_battery(state: State) -> float | None:
+    """Return the battery level the source sensor reports, if any."""
+    for attribute in ("battery", "battery_level"):
+        value = _optional_float(state.attributes.get(attribute))
+        if value is not None:
+            return value
+    return None
 
 
 def _daily_entries(entries: Sequence[dict]) -> list[DailyForecast]:
@@ -113,22 +147,25 @@ def _daily_entries(entries: Sequence[dict]) -> list[DailyForecast]:
     ]
 
 
-def _hourly_days(entries: Sequence[dict]) -> list[DailyForecast]:
-    """Aggregate hourly forecast entries into one value per local day."""
-    hours: list[tuple[date, float | None, float | None, float | None]] = []
+def _hourly_entries(entries: Sequence[dict]) -> list[HourlyForecast]:
+    """Convert hourly forecast entries into the hourly drying model input."""
+    hours: list[HourlyForecast] = []
     for entry in entries:
-        parsed = dt_util.parse_datetime(str(entry.get("datetime") or ""))
-        if parsed is None:
+        start = dt_util.parse_datetime(str(entry.get("datetime") or ""))
+        if start is None:
             continue
         hours.append(
-            (
-                dt_util.as_local(parsed).date(),
-                _optional_float(entry.get("temperature")),
-                _optional_float(entry.get("precipitation")),
-                _optional_float(entry.get("cloud_coverage")),
+            HourlyForecast(
+                start=dt_util.as_local(start),
+                temperature=_optional_float(entry.get("temperature")),
+                precipitation=_optional_float(entry.get("precipitation")),
+                cloud_coverage=_optional_float(entry.get("cloud_coverage")),
+                humidity=_optional_float(entry.get("humidity")),
+                sun_irradiance=_optional_float(entry.get("sun_irradiance")),
+                evaporation=_optional_float(entry.get("evaporation")),
             )
         )
-    return aggregate_hourly(hours)
+    return hours
 
 
 def _optional_float(value: object) -> float | None:
@@ -155,6 +192,8 @@ class SoilMoistureCoordinator(DataUpdateCoordinator[SoilMoistureData]):
         self._forecast_time: datetime | None = None
         self._forecast_error: str | None = None
         self._forecast_kind: str | None = None
+        self._forecast_hours: list[HourlyForecast] | None = None
+        self._last_watering: datetime | None = None
         super().__init__(
             hass,
             _LOGGER,
@@ -191,9 +230,24 @@ class SoilMoistureCoordinator(DataUpdateCoordinator[SoilMoistureData]):
         return weather_entities[0] if len(weather_entities) == 1 else None
 
     @property
+    def container_volume(self) -> float:
+        """Substrate volume in litres, used for the watering amount."""
+        return _as_number(
+            self.entry.options.get(
+                CONF_CONTAINER_VOLUME,
+                self.entry.data.get(
+                    CONF_CONTAINER_VOLUME, DEFAULT_CONTAINER_VOLUME
+                ),
+            ),
+            DEFAULT_CONTAINER_VOLUME,
+            MIN_CONTAINER_VOLUME,
+            MAX_CONTAINER_VOLUME,
+        )
+
+    @property
     def prediction_horizon(self) -> float:
         """Hours into the future the prediction sensor looks."""
-        return _as_hours(
+        return _as_number(
             self.entry.options.get(
                 CONF_PREDICTION_HORIZON, DEFAULT_PREDICTION_HORIZON
             ),
@@ -205,7 +259,7 @@ class SoilMoistureCoordinator(DataUpdateCoordinator[SoilMoistureData]):
     @property
     def history_hours(self) -> float:
         """How much history is used for the trend fit."""
-        return _as_hours(
+        return _as_number(
             self.entry.options.get(CONF_HISTORY_HOURS, DEFAULT_HISTORY_HOURS),
             DEFAULT_HISTORY_HOURS,
             MIN_HISTORY_HOURS,
@@ -226,6 +280,7 @@ class SoilMoistureCoordinator(DataUpdateCoordinator[SoilMoistureData]):
             )
 
         now = dt_util.utcnow()
+        self._detect_watering(current, now)
         self._samples.append((now.timestamp(), current))
 
         if not self._history_loaded:
@@ -253,18 +308,43 @@ class SoilMoistureCoordinator(DataUpdateCoordinator[SoilMoistureData]):
             for key, days in FORECAST_SENSORS.items()
         }
 
-        forecast, forecast_error = await self._async_weather_forecast()
-        if forecast:
+        forecast_hours, forecast_days_list, forecast_error = (
+            await self._async_weather_forecast()
+        )
+        if forecast_hours:
             weather_forecast = round(
-                project_with_forecast(
-                    current, slope, forecast, WEATHER_FORECAST_DAYS
+                project_with_hourly_forecast(
+                    current, slope, forecast_hours, WEATHER_FORECAST_DAYS
                 ),
                 1,
             )
-            weather_days = min(len(forecast), int(WEATHER_FORECAST_DAYS))
+            weather_days = min(
+                int(math.ceil(len(forecast_hours) / 24)),
+                int(WEATHER_FORECAST_DAYS),
+            )
+        elif forecast_days_list:
+            weather_forecast = round(
+                project_with_forecast(
+                    current, slope, forecast_days_list, WEATHER_FORECAST_DAYS
+                ),
+                1,
+            )
+            weather_days = min(len(forecast_days_list), int(WEATHER_FORECAST_DAYS))
         else:
             weather_forecast = None
             weather_days = 0
+
+        volume = self.container_volume
+        water_needed_ml = (
+            None
+            if volume <= 0
+            else round(
+                max(0.0, profile.optimal_target - current)
+                * volume
+                * ML_PER_PERCENT_LITRE,
+                0,
+            )
+        )
 
         return SoilMoistureData(
             current=round(current, 1),
@@ -279,7 +359,22 @@ class SoilMoistureCoordinator(DataUpdateCoordinator[SoilMoistureData]):
             weather_entity=self.weather_entity,
             weather_days=weather_days,
             weather_error=forecast_error,
-            weather_kind=self._forecast_kind if forecast else None,
+            weather_kind=self._forecast_kind
+            if (forecast_hours or forecast_days_list)
+            else None,
+            water_needed_ml=water_needed_ml,
+            container_volume=volume,
+            watering_required=current < profile.optimal_min,
+            last_watering=self._last_watering,
+            minutes_since_watering=(
+                None
+                if self._last_watering is None
+                else round((now - self._last_watering).total_seconds() / 60, 0)
+            ),
+            source_last_updated=state.last_updated,
+            source_battery=_source_battery(state),
+            data_stale=(now - state.last_updated).total_seconds()
+            > STALE_AFTER_MINUTES * 60,
         )
 
     async def _async_history_samples(self) -> list[tuple[float, float]]:
@@ -326,13 +421,21 @@ class SoilMoistureCoordinator(DataUpdateCoordinator[SoilMoistureData]):
 
     async def _async_weather_forecast(
         self,
-    ) -> tuple[list[DailyForecast] | None, str | None]:
-        """Return the daily forecast of the weather entity, cached for a while."""
+    ) -> tuple[list[HourlyForecast] | None, list[DailyForecast] | None, str | None]:
+        """Return the hourly and daily forecast, cached for a while.
+
+        Hourly data allows the more detailed drying model, so it is preferred;
+        daily data is the fallback for integrations that only offer that.
+        """
         entity_id = self.weather_entity
         if entity_id is None:
             weather_entities = self.hass.states.async_entity_ids("weather")
-            reason = "no_weather_entity" if not weather_entities else "multiple_weather_entities"
-            return None, reason
+            reason = (
+                "no_weather_entity"
+                if not weather_entities
+                else "multiple_weather_entities"
+            )
+            return None, None, reason
 
         now = dt_util.utcnow()
         if (
@@ -340,45 +443,47 @@ class SoilMoistureCoordinator(DataUpdateCoordinator[SoilMoistureData]):
             and now - self._forecast_time
             < timedelta(minutes=WEATHER_FORECAST_CACHE_MINUTES)
         ):
-            return self._forecast, self._forecast_error
+            return self._forecast_hours, self._forecast, self._forecast_error
 
-        forecast: list[DailyForecast] = []
-        kind = "daily"
+        hours: list[HourlyForecast] = []
+        days: list[DailyForecast] = []
+        kind = "hourly"
         error: str | None = None
         try:
-            forecast = _daily_entries(
-                await self._async_forecast_entries(entity_id, "daily")
+            hours = _hourly_entries(
+                await self._async_forecast_entries(entity_id, "hourly")
             )
         except Exception as err:  # noqa: BLE001 - the forecast is optional
             _LOGGER.debug(
-                "Could not load a daily weather forecast from %s",
+                "Could not load an hourly weather forecast from %s",
                 entity_id,
                 exc_info=True,
             )
             error = f"service_error: {err}"
 
-        if not forecast:
-            # Not every weather integration offers a daily forecast, so fall
-            # back to hourly data aggregated into calendar days.
-            kind = "hourly"
+        if not hours:
+            # Some weather integrations only provide a daily forecast.
+            kind = "daily"
             try:
-                forecast = _hourly_days(
-                    await self._async_forecast_entries(entity_id, "hourly")
+                days = _daily_entries(
+                    await self._async_forecast_entries(entity_id, "daily")
                 )
                 error = None
             except Exception as err:  # noqa: BLE001 - the forecast is optional
                 _LOGGER.debug(
-                    "Could not load an hourly weather forecast from %s",
+                    "Could not load a daily weather forecast from %s",
                     entity_id,
                     exc_info=True,
                 )
                 error = f"service_error: {err}"
 
-        self._forecast = forecast or None
-        self._forecast_time = now if forecast else None
-        self._forecast_error = None if forecast else (error or "empty_forecast")
-        self._forecast_kind = kind if forecast else None
-        return self._forecast, self._forecast_error
+        available = bool(hours or days)
+        self._forecast_hours = hours or None
+        self._forecast = days or None
+        self._forecast_time = now if available else None
+        self._forecast_error = None if available else (error or "empty_forecast")
+        self._forecast_kind = kind if available else None
+        return self._forecast_hours, self._forecast, self._forecast_error
 
     async def _async_forecast_entries(
         self, entity_id: str, forecast_type: str
@@ -396,6 +501,25 @@ class SoilMoistureCoordinator(DataUpdateCoordinator[SoilMoistureData]):
         payload = response or {}
         entity_response = payload.get(entity_id) or payload
         return list(entity_response.get("forecast") or [])
+
+    def _detect_watering(self, current: float, now: datetime) -> None:
+        """Restart the trend when the moisture jumps up because of watering."""
+        if not self._samples:
+            return
+        previous_time, previous_value = max(self._samples)
+        if current - previous_value < WATERING_JUMP_PERCENT:
+            return
+        if now.timestamp() - previous_time > WATERING_MAX_GAP_MINUTES * 60:
+            return
+        _LOGGER.debug(
+            "Detected watering of %s: %.1f %% -> %.1f %%, restarting the trend",
+            self.source_entity,
+            previous_value,
+            current,
+        )
+        # The jump is not drying, so the old samples would falsify the trend.
+        self._samples.clear()
+        self._last_watering = now
 
     def _prune_samples(self, now: float) -> None:
         """Drop samples older than the configured history window."""

@@ -17,17 +17,21 @@ from homeassistant.core import callback
 from homeassistant.helpers import selector
 
 from .const import (
+    CONF_CONTAINER_VOLUME,
     CONF_HISTORY_HOURS,
     CONF_PLANT_TYPE,
     CONF_PREDICTION_HORIZON,
     CONF_SOURCE_ENTITY,
+    DEFAULT_CONTAINER_VOLUME,
     DEFAULT_HISTORY_HOURS,
     DEFAULT_PLANT_TYPE,
     DEFAULT_PREDICTION_HORIZON,
     CONF_WEATHER_ENTITY,
     DOMAIN,
+    MAX_CONTAINER_VOLUME,
     MAX_HISTORY_HOURS,
     MAX_PREDICTION_HORIZON,
+    MIN_CONTAINER_VOLUME,
     MIN_HISTORY_HOURS,
     MIN_PREDICTION_HORIZON,
     PLANT_TYPES,
@@ -57,6 +61,18 @@ class _OptionalWeatherSelector(selector.EntitySelector):
 def _weather_selector() -> _OptionalWeatherSelector:
     return _OptionalWeatherSelector(
         selector.EntitySelectorConfig(domain="weather")
+    )
+
+
+def _volume_selector() -> selector.NumberSelector:
+    return selector.NumberSelector(
+        selector.NumberSelectorConfig(
+            min=MIN_CONTAINER_VOLUME,
+            max=MAX_CONTAINER_VOLUME,
+            step=0.5,
+            unit_of_measurement="L",
+            mode=selector.NumberSelectorMode.BOX,
+        )
     )
 
 
@@ -97,6 +113,9 @@ class SoilMoistureConfigFlow(ConfigFlow, domain=DOMAIN):
                         **user_input,
                         CONF_WEATHER_ENTITY: user_input.get(CONF_WEATHER_ENTITY)
                         or None,
+                        CONF_CONTAINER_VOLUME: float(
+                            user_input.get(CONF_CONTAINER_VOLUME) or 0.0
+                        ),
                     },
                 )
 
@@ -109,6 +128,9 @@ class SoilMoistureConfigFlow(ConfigFlow, domain=DOMAIN):
                     CONF_PLANT_TYPE, default=DEFAULT_PLANT_TYPE
                 ): _plant_type_selector(),
                 vol.Optional(CONF_WEATHER_ENTITY): _weather_selector(),
+                vol.Optional(
+                    CONF_CONTAINER_VOLUME, default=DEFAULT_CONTAINER_VOLUME
+                ): _volume_selector(),
                 vol.Optional(CONF_NAME, default=""): selector.TextSelector(),
             }
         )
@@ -131,6 +153,9 @@ class SoilMoistureOptionsFlow(OptionsFlow):
                 data={
                     **user_input,
                     CONF_WEATHER_ENTITY: user_input.get(CONF_WEATHER_ENTITY) or None,
+                    CONF_CONTAINER_VOLUME: float(
+                        user_input.get(CONF_CONTAINER_VOLUME) or 0.0
+                    ),
                 },
             )
 
@@ -143,6 +168,10 @@ class SoilMoistureOptionsFlow(OptionsFlow):
         history_hours = entry.options.get(CONF_HISTORY_HOURS, DEFAULT_HISTORY_HOURS)
         weather_entity = entry.options.get(
             CONF_WEATHER_ENTITY, entry.data.get(CONF_WEATHER_ENTITY)
+        )
+        container_volume = entry.options.get(
+            CONF_CONTAINER_VOLUME,
+            entry.data.get(CONF_CONTAINER_VOLUME, DEFAULT_CONTAINER_VOLUME),
         )
         weather_field = (
             vol.Optional(
@@ -180,6 +209,9 @@ class SoilMoistureOptionsFlow(OptionsFlow):
                     )
                 ),
                 weather_field: _weather_selector(),
+                vol.Required(
+                    CONF_CONTAINER_VOLUME, default=container_volume
+                ): _volume_selector(),
             }
         )
         return self.async_show_form(

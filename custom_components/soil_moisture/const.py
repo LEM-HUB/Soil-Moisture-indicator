@@ -11,7 +11,7 @@ from dataclasses import dataclass
 DOMAIN = "soil_moisture"
 NAME = "Soil Moisture Indicator"
 MANUFACTURER = "Soil Moisture Indicator"
-VERSION = "1.2.2"
+VERSION = "1.3.0"
 
 CONF_SOURCE_ENTITY = "source_entity"
 CONF_PLANT_TYPE = "plant_type"
@@ -19,8 +19,24 @@ CONF_NAME = "name"
 CONF_PREDICTION_HORIZON = "prediction_horizon"
 CONF_HISTORY_HOURS = "history_hours"
 CONF_WEATHER_ENTITY = "weather_entity"
+CONF_CONTAINER_VOLUME = "container_volume"
 
 DEFAULT_PLANT_TYPE = "houseplant"
+DEFAULT_CONTAINER_VOLUME = 0.0
+MIN_CONTAINER_VOLUME = 0.0
+MAX_CONTAINER_VOLUME = 1000.0
+
+# Rule of thumb for the watering amount: one percent moisture in one litre of
+# substrate is roughly ten millilitres of water.
+ML_PER_PERCENT_LITRE = 10.0
+
+# A jump of at least this many percentage points within this window means the
+# soil was watered, so the drying trend starts over.
+WATERING_JUMP_PERCENT = 5.0
+WATERING_MAX_GAP_MINUTES = 30
+
+# The source sensor counts as stale when it did not report for this long.
+STALE_AFTER_MINUTES = 30
 DEFAULT_PREDICTION_HORIZON = 12.0
 DEFAULT_HISTORY_HOURS = 24.0
 DEFAULT_UPDATE_INTERVAL_MINUTES = 5

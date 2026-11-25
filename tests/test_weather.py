@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import sys
-from datetime import date
+from datetime import datetime, timezone
 from pathlib import Path
 from types import ModuleType
 
@@ -101,28 +101,72 @@ def test_short_forecast_falls_back_to_linear_tail():
     ) == pytest.approx(expected)
 
 
-def test_aggregate_hourly_combines_calendar_days():
-    first = date(2026, 11, 26)
-    second = date(2026, 11, 27)
-    days = weather.aggregate_hourly(
-        [
-            (first, 0.0, 0.0, 20),
-            (first, 10.0, 1.0, 100),
-            (first, 5.0, 2.0, 100),
-            (second, -2.0, None, None),
-        ]
+def test_humidity_factor():
+    assert weather.humidity_factor(None) == 1.0
+    assert weather.humidity_factor(50) == pytest.approx(1.0)
+    assert weather.humidity_factor(90) == pytest.approx(0.68)
+    assert weather.humidity_factor(100) == weather.MIN_HUMIDITY_FACTOR
+    assert weather.humidity_factor(0) == weather.MAX_HUMIDITY_FACTOR
+
+
+def test_radiation_factor():
+    assert weather.radiation_factor(None) == 1.0
+    assert weather.radiation_factor(weather.RADIATION_REFERENCE_W) == pytest.approx(1.0)
+    assert weather.radiation_factor(0) == pytest.approx(0.85)
+    assert weather.radiation_factor(5000) == weather.MAX_RADIATION_FACTOR
+
+
+def test_evaporation_factor():
+    assert weather.evaporation_factor(None) == 1.0
+    assert weather.evaporation_factor(-1) == 1.0
+    assert weather.evaporation_factor(
+        weather.EVAPORATION_REFERENCE_MM_H
+    ) == pytest.approx(1.0)
+    assert weather.evaporation_factor(0.1) == pytest.approx(2.0)
+    assert weather.evaporation_factor(5) == weather.MAX_EVAPORATION_FACTOR
+
+
+def test_hour_factor_prefers_evaporation():
+    hour = weather.HourlyForecast(
+        temperature=20, humidity=90, sun_irradiance=0, evaporation=0.1
     )
-    assert len(days) == 2
-    assert days[0].temperature == 10.0
-    assert days[0].precipitation == 3.0
-    assert days[0].cloud_coverage == pytest.approx(73.333, rel=1e-3)
-    assert days[1].temperature == -2.0
-    assert days[1].precipitation is None
-    assert days[1].cloud_coverage is None
+    # Evaporation replaces radiation and humidity; temperature still applies.
+    assert weather.hour_factor(hour) == pytest.approx(2.0)
 
 
-def test_aggregate_hourly_without_entries():
-    assert weather.aggregate_hourly([]) == []
+def test_hour_factor_uses_radiation_and_humidity():
+    hour = weather.HourlyForecast(temperature=20, humidity=90, sun_irradiance=800)
+    # 1.0 temperature * 1.25 radiation * 0.68 humidity
+    assert weather.hour_factor(hour) == pytest.approx(0.85)
+
+
+def test_hour_factor_falls_back_to_clouds():
+    hour = weather.HourlyForecast(temperature=20, cloud_coverage=100)
+    assert weather.hour_factor(hour) == pytest.approx(0.7)
+
+
+def test_project_hourly_uses_every_hour():
+    start = datetime(2026, 11, 26, 0, tzinfo=timezone.utc)
+    hours = [
+        weather.HourlyForecast(start=start, temperature=20, cloud_coverage=0)
+        for _ in range(3)
+    ]
+    # 3 hours at -0.01 %/h, then 165 hours of the plain linear trend
+    assert weather.project_with_hourly_forecast(
+        60, -0.01, hours, 7
+    ) == pytest.approx(58.32)
+
+
+def test_project_hourly_caps_rain_per_day():
+    start = datetime(2026, 11, 26, 0, tzinfo=timezone.utc)
+    hours = [
+        weather.HourlyForecast(start=start, temperature=20, precipitation=50)
+        for _ in range(4)
+    ]
+    # 4 * 50 mm would be 400 points, capped at the daily maximum of 40
+    assert weather.project_with_hourly_forecast(
+        10, 0.0, hours, 4 / 24
+    ) == pytest.approx(50.0)
 
 
 def test_empty_forecast_uses_linear_projection():
