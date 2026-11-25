@@ -181,6 +181,7 @@ class SoilMoistureWeatherForecastSensor(_SoilMoistureBase):
             "basis": "weather_forecast",
             "weather_entity": data.weather_entity,
             "forecast_days_used": data.weather_days,
+            "forecast_kind": data.weather_kind,
             "forecast_error": data.weather_error,
             "current_moisture": data.current,
             **_trend_attributes(data),

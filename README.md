@@ -145,6 +145,7 @@ und lassen sich dort leicht an den eigenen Sensor anpassen.
 | `samples` | Anzahl der Messpunkte im Fit |
 | `weather_entity` | Genutzte Wetterentität (nur wetterbasierter Sensor) |
 | `forecast_days_used` | Anzahl der verwendeten Vorhersagetage |
+| `forecast_kind` | `daily` oder `hourly` – Datenquelle der Vorhersage |
 | `forecast_error` | Grund, falls keine Wettervorhersage vorliegt |
 
 ## Wie die Vorhersage funktioniert
@@ -171,7 +172,11 @@ Für die Sensoren mit festem Horizont gilt reine lineare Trocknung:
 
 Für jeden Vorhersagetag der Wetterentität (`weather.get_forecasts`, Typ
 `daily`) wird die Trocknung an Temperatur und Bewölkung angepasst und der
-Regen des Tages addiert:
+Regen des Tages addiert. Liefert die Wetterentität keine Tagesvorhersage (Typ
+`daily`), wird ersatzweise die stündliche Vorhersage (Typ `hourly`) zu
+Kalendertagen zusammengefasst: Tagesmaximum der Temperatur, Summe des Regens,
+Mittel der Bewölkung. Das Attribut `forecast_kind` zeigt, welche Variante
+genutzt wurde.
 
 `Änderung = Steigung × 24 × Temperaturfaktor × Wolkenfaktor + Regenzuschlag`
 

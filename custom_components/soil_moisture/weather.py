@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from datetime import date
 from typing import Sequence
 
 MIN_MOISTURE = 0.0
@@ -39,6 +40,40 @@ class DailyForecast:
 
     cloud_coverage: float | None = None
     """Average cloud cover in percent."""
+
+
+def aggregate_hourly(
+    hours: Sequence[tuple[date, float | None, float | None, float | None]],
+) -> list[DailyForecast]:
+    """Combine hourly forecast values into one entry per calendar day.
+
+    ``hours`` holds ``(day, temperature, precipitation, cloud_coverage)``
+    tuples. The temperature is reduced to the daily maximum, precipitation is
+    summed and cloud coverage is averaged, matching what weather integrations
+    report for a daily forecast.
+    """
+    order: list[date] = []
+    days: dict[date, tuple[list[float], list[float], list[float]]] = {}
+    for day, temperature, precipitation, cloud_coverage in hours:
+        if day not in days:
+            days[day] = ([], [], [])
+            order.append(day)
+        temperatures, rains, clouds = days[day]
+        if temperature is not None and math.isfinite(temperature):
+            temperatures.append(temperature)
+        if precipitation is not None and math.isfinite(precipitation):
+            rains.append(precipitation)
+        if cloud_coverage is not None and math.isfinite(cloud_coverage):
+            clouds.append(cloud_coverage)
+
+    return [
+        DailyForecast(
+            temperature=max(temperatures) if temperatures else None,
+            precipitation=sum(rains) if rains else None,
+            cloud_coverage=sum(clouds) / len(clouds) if clouds else None,
+        )
+        for temperatures, rains, clouds in (days[day] for day in order)
+    ]
 
 
 def _clamp(value: float, minimum: float, maximum: float) -> float:

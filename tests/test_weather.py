@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import sys
+from datetime import date
 from pathlib import Path
 from types import ModuleType
 
@@ -98,6 +99,30 @@ def test_short_forecast_falls_back_to_linear_tail():
     assert weather.project_with_forecast(
         60, -0.1, forecast, 7
     ) == pytest.approx(expected)
+
+
+def test_aggregate_hourly_combines_calendar_days():
+    first = date(2026, 11, 26)
+    second = date(2026, 11, 27)
+    days = weather.aggregate_hourly(
+        [
+            (first, 0.0, 0.0, 20),
+            (first, 10.0, 1.0, 100),
+            (first, 5.0, 2.0, 100),
+            (second, -2.0, None, None),
+        ]
+    )
+    assert len(days) == 2
+    assert days[0].temperature == 10.0
+    assert days[0].precipitation == 3.0
+    assert days[0].cloud_coverage == pytest.approx(73.333, rel=1e-3)
+    assert days[1].temperature == -2.0
+    assert days[1].precipitation is None
+    assert days[1].cloud_coverage is None
+
+
+def test_aggregate_hourly_without_entries():
+    assert weather.aggregate_hourly([]) == []
 
 
 def test_empty_forecast_uses_linear_projection():

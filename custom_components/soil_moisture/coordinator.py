@@ -5,8 +5,9 @@ from __future__ import annotations
 import logging
 from collections import deque
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from functools import partial
+from typing import Sequence
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
@@ -42,7 +43,12 @@ from .predict import (
     linear_trend,
     predicted_value,
 )
-from .weather import DailyForecast, project_linear, project_with_forecast
+from .weather import (
+    DailyForecast,
+    aggregate_hourly,
+    project_linear,
+    project_with_forecast,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -69,6 +75,8 @@ class SoilMoistureData:
     """Number of forecast days that were available and used."""
     weather_error: str | None = None
     """Why no weather forecast was used; ``None`` when one was available."""
+    weather_kind: str | None = None
+    """Whether ``daily`` or aggregated ``hourly`` forecast data was used."""
 
 
 def _numeric_value(state: State) -> float | None:
@@ -91,6 +99,36 @@ def _as_hours(value: object, fallback: float, minimum: float, maximum: float) ->
     if number != number:  # NaN
         return fallback
     return max(minimum, min(maximum, number))
+
+
+def _daily_entries(entries: Sequence[dict]) -> list[DailyForecast]:
+    """Convert daily forecast entries into the drying model input."""
+    return [
+        DailyForecast(
+            temperature=_optional_float(entry.get("temperature")),
+            precipitation=_optional_float(entry.get("precipitation")),
+            cloud_coverage=_optional_float(entry.get("cloud_coverage")),
+        )
+        for entry in entries
+    ]
+
+
+def _hourly_days(entries: Sequence[dict]) -> list[DailyForecast]:
+    """Aggregate hourly forecast entries into one value per local day."""
+    hours: list[tuple[date, float | None, float | None, float | None]] = []
+    for entry in entries:
+        parsed = dt_util.parse_datetime(str(entry.get("datetime") or ""))
+        if parsed is None:
+            continue
+        hours.append(
+            (
+                dt_util.as_local(parsed).date(),
+                _optional_float(entry.get("temperature")),
+                _optional_float(entry.get("precipitation")),
+                _optional_float(entry.get("cloud_coverage")),
+            )
+        )
+    return aggregate_hourly(hours)
 
 
 def _optional_float(value: object) -> float | None:
@@ -116,6 +154,7 @@ class SoilMoistureCoordinator(DataUpdateCoordinator[SoilMoistureData]):
         self._forecast: list[DailyForecast] | None = None
         self._forecast_time: datetime | None = None
         self._forecast_error: str | None = None
+        self._forecast_kind: str | None = None
         super().__init__(
             hass,
             _LOGGER,
@@ -240,6 +279,7 @@ class SoilMoistureCoordinator(DataUpdateCoordinator[SoilMoistureData]):
             weather_entity=self.weather_entity,
             weather_days=weather_days,
             weather_error=forecast_error,
+            weather_kind=self._forecast_kind if forecast else None,
         )
 
     async def _async_history_samples(self) -> list[tuple[float, float]]:
@@ -302,42 +342,60 @@ class SoilMoistureCoordinator(DataUpdateCoordinator[SoilMoistureData]):
         ):
             return self._forecast, self._forecast_error
 
+        forecast: list[DailyForecast] = []
+        kind = "daily"
+        error: str | None = None
         try:
-            response = await self.hass.services.async_call(
-                "weather",
-                "get_forecasts",
-                {"type": "daily", "entity_id": entity_id},
-                blocking=True,
-                return_response=True,
+            forecast = _daily_entries(
+                await self._async_forecast_entries(entity_id, "daily")
             )
         except Exception as err:  # noqa: BLE001 - the forecast is optional
             _LOGGER.debug(
-                "Could not load a weather forecast from %s",
+                "Could not load a daily weather forecast from %s",
                 entity_id,
                 exc_info=True,
             )
-            self._forecast = None
-            self._forecast_time = None
-            self._forecast_error = f"service_error: {err}"
-            return None, self._forecast_error
+            error = f"service_error: {err}"
 
+        if not forecast:
+            # Not every weather integration offers a daily forecast, so fall
+            # back to hourly data aggregated into calendar days.
+            kind = "hourly"
+            try:
+                forecast = _hourly_days(
+                    await self._async_forecast_entries(entity_id, "hourly")
+                )
+                error = None
+            except Exception as err:  # noqa: BLE001 - the forecast is optional
+                _LOGGER.debug(
+                    "Could not load an hourly weather forecast from %s",
+                    entity_id,
+                    exc_info=True,
+                )
+                error = f"service_error: {err}"
+
+        self._forecast = forecast or None
+        self._forecast_time = now if forecast else None
+        self._forecast_error = None if forecast else (error or "empty_forecast")
+        self._forecast_kind = kind if forecast else None
+        return self._forecast, self._forecast_error
+
+    async def _async_forecast_entries(
+        self, entity_id: str, forecast_type: str
+    ) -> list[dict]:
+        """Fetch the raw forecast entries of a weather entity."""
+        response = await self.hass.services.async_call(
+            "weather",
+            "get_forecasts",
+            {"type": forecast_type, "entity_id": entity_id},
+            blocking=True,
+            return_response=True,
+        )
         # Entity services return their response keyed by entity id, plain
         # services return it directly; accept both shapes.
         payload = response or {}
         entity_response = payload.get(entity_id) or payload
-        entries = entity_response.get("forecast") or []
-        forecast = [
-            DailyForecast(
-                temperature=_optional_float(entry.get("temperature")),
-                precipitation=_optional_float(entry.get("precipitation")),
-                cloud_coverage=_optional_float(entry.get("cloud_coverage")),
-            )
-            for entry in entries
-        ]
-        self._forecast = forecast or None
-        self._forecast_time = now
-        self._forecast_error = None if forecast else "empty_forecast"
-        return self._forecast, self._forecast_error
+        return list(entity_response.get("forecast") or [])
 
     def _prune_samples(self, now: float) -> None:
         """Drop samples older than the configured history window."""
