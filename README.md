@@ -49,6 +49,11 @@ starten.
    Mengenangabe ab.
 6. Optional einen Namen vergeben (z. B. „Tomaten Gewächshaus").
 
+Nach dem Anlegen steht der Eintrag in der Integrationsliste unter
+„Soil Moisture Indicator“ – nicht im Tab *Helfer*, weil die Integration als
+`integration_type: device` gemeldet ist. Das erzeugte Gerät trägt den oben
+vergebenen Namen.
+
 Über *Konfigurieren* an der Integration lassen sich Pflanzentyp,
 Vorhersagehorizont (1–72 h), Historienfenster (2–168 h) und Substratvolumen
 jederzeit ändern.

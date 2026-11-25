@@ -6,7 +6,7 @@
   "documentation": "https://github.com/LEM-HUB/Soil-Moisture-indicator",
   "issue_tracker": "https://github.com/LEM-HUB/Soil-Moisture-indicator/issues",
   "after_dependencies": ["recorder"],
-  "integration_type": "helper",
+  "integration_type": "device",
   "iot_class": "calculated",
-  "version": "1.3.1"
+  "version": "1.3.2"
 }
