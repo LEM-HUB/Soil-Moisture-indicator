@@ -13,6 +13,8 @@ jeweiligen Pflanzentyp** als Sensor bereitstellt.
 - Liefert Sensoren für die aktuelle Feuchtigkeit, den linearen
   Trocknungsverlauf nach 1, 5 und 7 Tagen sowie eine 7-Tage-Vorhersage, die die
   Wettervorhersage (`weather.get_forecasts`) stündlich einbezieht.
+- Zählt in Tagen, bis die Mindestfeuchtigkeit erreicht ist – einmal rein linear,
+  einmal mit der Wettervorhersage (Regen und Verdunstung).
 - Erkennt Gießen an einem plötzlichen Feuchtesprung und startet den Trend neu,
   damit die Prognose nicht durch die Wassergabe verfälscht wird.
 - Berechnet aus dem Substratvolumen die nötige Wassermenge in Millilitern und
@@ -60,7 +62,7 @@ jederzeit ändern.
 
 ## Entitäten
 
-Pro Einrichtung entstehen ein Gerät, acht Sensoren und zwei Binärsensoren:
+Pro Einrichtung entstehen ein Gerät, zehn Sensoren und zwei Binärsensoren:
 
 | Entität | Einheit | Bedeutung |
 | --- | --- | --- |
@@ -72,6 +74,8 @@ Pro Einrichtung entstehen ein Gerät, acht Sensoren und zwei Binärsensoren:
 | `sensor.<name>_feuchtigkeitsvorhersage` | % | Vorhergesagte Bodenfeuchte nach dem eingestellten Horizont |
 | `sensor.<name>_optimale_feuchtigkeit` | % | Mitte des Optimalbereichs der Pflanze |
 | `sensor.<name>_benoetigtes_wasser` | mL | Wassermenge bis zur Mitte des Optimalbereichs (nur mit Substratvolumen) |
+| `sensor.<name>_tage_bis_zur_mindestfeuchtigkeit` | Tage | Tage bis zum unteren Rand des Optimalbereichs nach dem linearen Modell |
+| `sensor.<name>_tage_bis_zur_mindestfeuchtigkeit_wettervorhersage` | Tage | Tage bis zum unteren Rand inklusive Wettervorhersage |
 | `binary_sensor.<name>_giessen_noetig` | – | `on`, sobald die Feuchte unter den Optimalbereich fällt |
 | `binary_sensor.<name>_sensordaten_veraltet` | – | `on`, wenn der Quellsensor länger als 30 Minuten nichts liefert |
 
@@ -122,6 +126,25 @@ Die Zustände der Binärsensoren sind intern `on`/`off`. Angezeigt werden
 | `target_moisture` | Zielwert (Mitte des Optimalbereichs) |
 | `water_needed_litres` | Benötigte Menge in Litern |
 | `current_moisture` | Aktueller Messwert |
+
+### Attribute der Tage bis zur Mindestfeuchtigkeit
+
+| Attribut | Beschreibung |
+| --- | --- |
+| `basis` | `linear_drying` oder `weather_forecast` |
+| `optimal_min` | Schwelle, deren Erreichen gezählt wird |
+| `current_moisture` | Aktueller Messwert |
+| `trend_per_hour` / `confidence` | Steigung und Bestimmtheitsmaß des Trends |
+| `weather_entity` | Ausgewertete Wetterentität (nur Wettersensor) |
+| `forecast_days_used` / `forecast_kind` | Anzahl und Art der genutzten Vorhersagetage |
+| `forecast_error` | Grund, falls keine Wettervorhersage vorlag |
+
+Beide Sensoren liefern den Wert in Tagen mit einer Nachkommastelle. `0` heißt,
+die Mindestfeuchtigkeit ist bereits erreicht; `unknown` heißt, der Trend fällt
+nicht (stabil oder steigend), sodass die Schwelle nie erreicht wird. Reicht die
+Wettervorhersage nicht bis zum erwarteten Tag, rechnet der Wettersensor danach
+mit dem linearen Trend weiter; `forecast_days_used` zeigt, wie viele Tage
+tatsächlich aus der Vorhersage stammen.
 
 ## Pflanzenprofile
 

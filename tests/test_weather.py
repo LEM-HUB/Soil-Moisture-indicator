@@ -173,3 +173,52 @@ def test_empty_forecast_uses_linear_projection():
     assert weather.project_with_forecast(
         60, -0.1, [], 7
     ) == pytest.approx(weather.project_linear(60, -0.1, 7))
+
+
+def test_hours_until_min_without_weather_matches_linear():
+    mild = weather.DailyForecast(temperature=20, precipitation=0, cloud_coverage=0)
+    # 0.5 pp/h * 24 h = 12 pp per day, 10 pp to go -> 20 h
+    assert weather.hours_until_min_with_forecast(
+        50, -0.5, [mild] * 7, 40
+    ) == pytest.approx(20.0)
+
+
+def test_hours_until_min_is_delayed_by_rain():
+    mild = weather.DailyForecast(temperature=20, precipitation=0, cloud_coverage=0)
+    rainy = weather.DailyForecast(temperature=20, precipitation=5, cloud_coverage=0)
+    # Two dry days (50 -> 45.2), one rainy day (+7.6 -> 52.8), then 12.8 pp at
+    # 2.4 pp per day -> 3 + 5.333 days
+    assert weather.hours_until_min_with_forecast(
+        50, -0.1, [mild, mild, rainy] + [mild] * 10, 40
+    ) == pytest.approx(200.0, abs=0.05)
+
+
+def test_hours_until_min_falls_back_to_linear_past_the_forecast():
+    mild = weather.DailyForecast(temperature=20, precipitation=0, cloud_coverage=0)
+    # one day of -12 pp -> 48 pp, then 8 pp at 0.5 pp/h
+    assert weather.hours_until_min_with_forecast(60, -0.5, [mild], 40) == pytest.approx(
+        40.0
+    )
+
+
+def test_hours_until_min_edge_cases():
+    mild = weather.DailyForecast(temperature=20, cloud_coverage=0)
+    assert weather.hours_until_min_with_forecast(40, -0.5, [mild], 40) == 0.0
+    assert weather.hours_until_min_with_forecast(35, -0.5, [mild], 40) == 0.0
+    assert weather.hours_until_min_with_forecast(50, 0.2, [mild], 40) is None
+    assert weather.hours_until_min_with_forecast(50, 0.0, [], 40) is None
+
+
+def test_hours_until_min_hourly_forecast():
+    hour = weather.HourlyForecast()
+    # no weather fields -> factor 1.0, so 10 pp at 0.5 pp/h is 20 h
+    assert weather.hours_until_min_with_hourly_forecast(
+        50, -0.5, [hour] * 30, 40
+    ) == pytest.approx(20.0)
+
+    start = datetime(2026, 5, 1, 12, tzinfo=timezone.utc)
+    rainy_hour = weather.HourlyForecast(start=start, precipitation=1)
+    # the first hour adds 2 pp, so 11.5 pp at 0.5 pp/h remain -> 24 h in total
+    assert weather.hours_until_min_with_hourly_forecast(
+        50, -0.5, [rainy_hour] + [hour] * 40, 40
+    ) == pytest.approx(24.0)

@@ -255,3 +255,86 @@ def project_with_hourly_forecast(
     if used < total_hours:
         value = _clamp_moisture(value + slope_per_hour * (total_hours - used))
     return value
+
+
+def _crossing_fraction(
+    before: float, delta: float, threshold: float
+) -> float | None:
+    """Return the fraction of one step until the moisture reaches ``threshold``."""
+    if delta < 0 and before + delta <= threshold:
+        return (before - threshold) / -delta
+    return None
+
+
+def hours_until_min_with_forecast(
+    current: float,
+    slope_per_hour: float,
+    forecast: Sequence[DailyForecast],
+    threshold: float,
+) -> float | None:
+    """Return the hours until the daily forecast dries the soil to ``threshold``.
+
+    ``0.0`` means the threshold is already reached and ``None`` means the trend
+    is not drying out. Once the forecast runs out the plain linear trend
+    continues, so a date beyond the forecast range is still answered.
+    """
+    if current <= threshold:
+        return 0.0
+    if slope_per_hour >= 0:
+        return None
+
+    value = current
+    elapsed = 0.0
+    for day in forecast:
+        delta = daily_change(slope_per_hour, day)
+        fraction = _crossing_fraction(value, delta, threshold)
+        if fraction is not None:
+            return elapsed + fraction * 24
+        value = _clamp_moisture(value + delta)
+        elapsed += 24.0
+
+    return elapsed + (value - threshold) / -slope_per_hour
+
+
+def hours_until_min_with_hourly_forecast(
+    current: float,
+    slope_per_hour: float,
+    hours: Sequence[HourlyForecast],
+    threshold: float,
+) -> float | None:
+    """Return the hours until the hourly forecast dries the soil to ``threshold``.
+
+    Every forecast entry counts as one hour, matching
+    :func:`project_with_hourly_forecast`. The rain gain is capped per calendar
+    day there as well. ``0.0`` means the threshold is already reached, ``None``
+    means the trend is not drying out; past the forecast the linear trend
+    continues.
+    """
+    if current <= threshold:
+        return 0.0
+    if slope_per_hour >= 0:
+        return None
+
+    value = current
+    elapsed = 0.0
+    rain_by_day: dict[date, float] = {}
+
+    for hour in hours:
+        rain = 0.0
+        if (
+            hour.precipitation is not None
+            and math.isfinite(hour.precipitation)
+            and hour.start is not None
+        ):
+            day = hour.start.date()
+            room = MAX_DAILY_RAIN_PERCENT - rain_by_day.get(day, 0.0)
+            rain = max(0.0, min(rain_gain(hour.precipitation), room))
+            rain_by_day[day] = rain_by_day.get(day, 0.0) + rain
+        delta = slope_per_hour * hour_factor(hour) + rain
+        fraction = _crossing_fraction(value, delta, threshold)
+        if fraction is not None:
+            return elapsed + fraction
+        value = _clamp_moisture(value + delta)
+        elapsed += 1.0
+
+    return elapsed + (value - threshold) / -slope_per_hour

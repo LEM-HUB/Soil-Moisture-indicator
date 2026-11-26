@@ -55,6 +55,8 @@ from .predict import (
 from .weather import (
     DailyForecast,
     HourlyForecast,
+    hours_until_min_with_forecast,
+    hours_until_min_with_hourly_forecast,
     project_linear,
     project_with_forecast,
     project_with_hourly_forecast,
@@ -87,6 +89,10 @@ class SoilMoistureData:
     """Why no weather forecast was used; ``None`` when one was available."""
     weather_kind: str | None = None
     """Whether ``daily`` or aggregated ``hourly`` forecast data was used."""
+    days_until_min: float | None = None
+    """Days until the linear drying reaches the lower end of the optimum."""
+    days_until_min_weather: float | None = None
+    """Days until the lower end is reached with the weather forecast applied."""
     water_needed_ml: float | None = None
     """Water in millilitres to reach the middle of the optimal range."""
     container_volume: float = 0.0
@@ -334,6 +340,25 @@ class SoilMoistureCoordinator(DataUpdateCoordinator[SoilMoistureData]):
             weather_forecast = None
             weather_days = 0
 
+        days_until_min = (
+            None if hours_until_min is None else round(hours_until_min / 24, 1)
+        )
+        weather_hours_until_min: float | None = None
+        if hours_until_min is not None:
+            if forecast_hours:
+                weather_hours_until_min = hours_until_min_with_hourly_forecast(
+                    current, slope, forecast_hours, profile.optimal_min
+                )
+            elif forecast_days_list:
+                weather_hours_until_min = hours_until_min_with_forecast(
+                    current, slope, forecast_days_list, profile.optimal_min
+                )
+        days_until_min_weather = (
+            None
+            if weather_hours_until_min is None
+            else round(weather_hours_until_min / 24, 1)
+        )
+
         volume = self.container_volume
         water_needed_ml = (
             None
@@ -362,6 +387,8 @@ class SoilMoistureCoordinator(DataUpdateCoordinator[SoilMoistureData]):
             weather_kind=self._forecast_kind
             if (forecast_hours or forecast_days_list)
             else None,
+            days_until_min=days_until_min,
+            days_until_min_weather=days_until_min_weather,
             water_needed_ml=water_needed_ml,
             container_volume=volume,
             watering_required=current < profile.optimal_min,

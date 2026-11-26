@@ -52,42 +52,42 @@
   "selector": {
     "plant_type": {
       "options": {
-        "houseplant": "Houseplant",
-        "tomato": "Tomato",
-        "pepper": "Pepper",
-        "cucumber": "Cucumber",
-        "zucchini": "Zucchini",
-        "lettuce": "Lettuce",
-        "potato": "Potato",
-        "strawberry": "Strawberry",
-        "blueberry": "Blueberry",
-        "citrus": "Citrus",
-        "avocado": "Avocado",
-        "rose": "Rose",
-        "herb": "Herbs",
-        "fern": "Fern",
-        "lawn": "Lawn",
-        "hedge": "Hedge",
-        "tree": "Tree",
-        "bonsai": "Bonsai",
-        "orchid": "Orchid",
-        "succulent": "Succulent / cactus",
-        "aloe_vera": "Aloe vera",
         "agave": "Agave",
-        "snake_plant": "Snake plant",
-        "zz_plant": "ZZ plant",
-        "yucca": "Yucca",
-        "pothos": "Pothos",
-        "monstera": "Monstera",
-        "palm": "Indoor palm",
+        "aloe_vera": "Aloe vera",
+        "avocado": "Avocado",
         "bamboo": "Bamboo",
+        "tree": "Tree",
+        "snake_plant": "Snake plant",
+        "bonsai": "Bonsai",
+        "chili": "Chili",
+        "pothos": "Pothos",
         "peace_lily": "Peace lily",
+        "strawberry": "Strawberry",
+        "fern": "Fern",
+        "zz_plant": "ZZ plant",
+        "cucumber": "Cucumber",
+        "hedge": "Hedge",
+        "blueberry": "Blueberry",
+        "potato": "Potato",
         "calathea": "Calathea",
-        "venus_flytrap": "Venus flytrap",
-        "air_plant": "Air plant (Tillandsia)",
+        "herb": "Herbs",
         "lavender": "Lavender",
+        "monstera": "Monstera",
+        "orchid": "Orchid",
+        "pepper": "Pepper",
+        "lawn": "Lawn",
+        "rose": "Rose",
         "rosemary": "Rosemary",
-        "chili": "Chili"
+        "lettuce": "Lettuce",
+        "succulent": "Succulent / cactus",
+        "air_plant": "Air plant (Tillandsia)",
+        "tomato": "Tomato",
+        "venus_flytrap": "Venus flytrap",
+        "yucca": "Yucca",
+        "palm": "Indoor palm",
+        "houseplant": "Houseplant",
+        "citrus": "Citrus",
+        "zucchini": "Zucchini"
       }
     }
   },
@@ -116,6 +116,12 @@
       },
       "water_needed": {
         "name": "Water needed"
+      },
+      "days_until_min": {
+        "name": "Days until minimum moisture"
+      },
+      "days_until_min_weather": {
+        "name": "Days until minimum moisture (weather forecast)"
       }
     },
     "binary_sensor": {

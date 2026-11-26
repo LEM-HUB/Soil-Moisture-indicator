@@ -11,7 +11,7 @@ from dataclasses import dataclass
 DOMAIN = "soil_moisture"
 NAME = "Soil Moisture Indicator"
 MANUFACTURER = "Soil Moisture Indicator"
-VERSION = "1.3.2"
+VERSION = "1.3.4"
 
 CONF_SOURCE_ENTITY = "source_entity"
 CONF_PLANT_TYPE = "plant_type"
@@ -120,7 +120,48 @@ PLANT_PROFILES: dict[str, PlantProfile] = {
     "chili": PlantProfile("chili", 55.0, 70.0, "mdi:chili-mild"),
 }
 
-PLANT_TYPES: list[str] = list(PLANT_PROFILES)
+# Order of the dropdown in the config flow: alphabetical by the label the user
+# sees (German, the primary language of this integration), so the list stays
+# quick to scan. The ``selector.plant_type.options`` translations keep the same
+# order.
+PLANT_TYPES: list[str] = [
+    "agave",
+    "aloe_vera",
+    "avocado",
+    "bamboo",
+    "tree",
+    "snake_plant",
+    "bonsai",
+    "chili",
+    "pothos",
+    "peace_lily",
+    "strawberry",
+    "fern",
+    "zz_plant",
+    "cucumber",
+    "hedge",
+    "blueberry",
+    "potato",
+    "calathea",
+    "herb",
+    "lavender",
+    "monstera",
+    "orchid",
+    "pepper",
+    "lawn",
+    "rose",
+    "rosemary",
+    "lettuce",
+    "succulent",
+    "air_plant",
+    "tomato",
+    "venus_flytrap",
+    "yucca",
+    "palm",
+    "houseplant",
+    "citrus",
+    "zucchini",
+]
 
 
 def get_plant_profile(key: str | None) -> PlantProfile:

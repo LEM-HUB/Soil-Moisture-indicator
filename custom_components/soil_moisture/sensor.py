@@ -10,7 +10,7 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import PERCENTAGE, UnitOfVolume
+from homeassistant.const import PERCENTAGE, UnitOfTime, UnitOfVolume
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -35,6 +35,8 @@ async def async_setup_entry(
                 for key, days in FORECAST_SENSORS.items()
             ),
             SoilMoistureWeatherForecastSensor(coordinator, entry),
+            SoilMoistureDaysUntilMinSensor(coordinator, entry),
+            SoilMoistureDaysUntilMinWeatherSensor(coordinator, entry),
             SoilMoisturePredictionSensor(coordinator, entry),
             SoilMoistureOptimalSensor(coordinator, entry),
             SoilMoistureWaterNeededSensor(coordinator, entry),
@@ -196,6 +198,72 @@ class SoilMoistureWeatherForecastSensor(_SoilMoistureBase):
             "forecast_kind": data.weather_kind,
             "forecast_error": data.weather_error,
             "current_moisture": data.current,
+            **_trend_attributes(data),
+        }
+
+
+class SoilMoistureDaysUntilMinSensor(_SoilMoistureBase):
+    """Days until the linear drying reaches the minimum moisture."""
+
+    _attr_icon = "mdi:timer-sand"
+    _attr_device_class = SensorDeviceClass.DURATION
+    _attr_native_unit_of_measurement = UnitOfTime.DAYS
+    _attr_state_class = None
+
+    def __init__(
+        self, coordinator: SoilMoistureCoordinator, entry: ConfigEntry
+    ) -> None:
+        super().__init__(coordinator, entry, "days_until_min")
+
+    @property
+    def native_value(self) -> float | None:
+        """Days until the lower end of the optimal range is reached."""
+        data = self._data
+        return None if data is None else data.days_until_min
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Expose the threshold and the trend behind the countdown."""
+        data = self._data or SoilMoistureData()
+        return {
+            "basis": "linear_drying",
+            "optimal_min": self.coordinator.profile.optimal_min,
+            "current_moisture": data.current,
+            **_trend_attributes(data),
+        }
+
+
+class SoilMoistureDaysUntilMinWeatherSensor(_SoilMoistureBase):
+    """Days until the minimum moisture is reached, weather included."""
+
+    _attr_icon = "mdi:weather-partly-rainy"
+    _attr_device_class = SensorDeviceClass.DURATION
+    _attr_native_unit_of_measurement = UnitOfTime.DAYS
+    _attr_state_class = None
+
+    def __init__(
+        self, coordinator: SoilMoistureCoordinator, entry: ConfigEntry
+    ) -> None:
+        super().__init__(coordinator, entry, "days_until_min_weather")
+
+    @property
+    def native_value(self) -> float | None:
+        """Days until the lower end is reached with forecast rain and drying."""
+        data = self._data
+        return None if data is None else data.days_until_min_weather
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Expose the threshold, the weather entity and the trend."""
+        data = self._data or SoilMoistureData()
+        return {
+            "basis": "weather_forecast",
+            "optimal_min": self.coordinator.profile.optimal_min,
+            "current_moisture": data.current,
+            "weather_entity": data.weather_entity,
+            "forecast_days_used": data.weather_days,
+            "forecast_kind": data.weather_kind,
+            "forecast_error": data.weather_error,
             **_trend_attributes(data),
         }
 

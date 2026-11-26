@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -43,8 +44,35 @@ def test_forecast_sensor_horizons():
 
 
 def test_plant_types_match_profiles():
-    assert const.PLANT_TYPES == list(const.PLANT_PROFILES)
+    assert sorted(const.PLANT_TYPES) == sorted(const.PLANT_PROFILES)
+    assert len(set(const.PLANT_TYPES)) == len(const.PLANT_TYPES)
     assert const.DEFAULT_PLANT_TYPE in const.PLANT_PROFILES
+
+
+def _german_labels() -> dict[str, str]:
+    path = MODULE_DIR / "translations" / "de.json"
+    return json.loads(path.read_text(encoding="utf-8"))["selector"]["plant_type"][
+        "options"
+    ]
+
+
+def _sort_key(label: str) -> str:
+    """Fold umlauts so German labels sort the way a reader expects."""
+    return (
+        label.lower()
+        .replace("ä", "a")
+        .replace("ö", "o")
+        .replace("ü", "u")
+        .replace("ß", "ss")
+    )
+
+
+def test_plant_types_are_sorted_alphabetically():
+    labels = _german_labels()
+    assert sorted(labels) == sorted(const.PLANT_TYPES)
+    assert const.PLANT_TYPES == sorted(
+        const.PLANT_TYPES, key=lambda key: _sort_key(labels[key])
+    )
 
 
 def test_get_plant_profile_fallback():

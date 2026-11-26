@@ -52,42 +52,42 @@
   "selector": {
     "plant_type": {
       "options": {
-        "houseplant": "Zimmerpflanze",
-        "tomato": "Tomate",
-        "pepper": "Paprika",
-        "cucumber": "Gurke",
-        "zucchini": "Zucchini",
-        "lettuce": "Salat",
-        "potato": "Kartoffel",
-        "strawberry": "Erdbeere",
-        "blueberry": "Heidelbeere",
-        "citrus": "Zitruspflanze",
-        "avocado": "Avocado",
-        "rose": "Rose",
-        "herb": "Kräuter",
-        "fern": "Farn",
-        "lawn": "Rasen",
-        "hedge": "Hecke",
-        "tree": "Baum",
-        "bonsai": "Bonsai",
-        "orchid": "Orchidee",
-        "succulent": "Sukkulente / Kaktus",
-        "aloe_vera": "Aloe Vera",
         "agave": "Agave",
-        "snake_plant": "Bogenhanf",
-        "zz_plant": "Glücksfeder",
-        "yucca": "Yucca",
-        "pothos": "Efeutute",
-        "monstera": "Monstera",
-        "palm": "Zimmerpalme",
+        "aloe_vera": "Aloe Vera",
+        "avocado": "Avocado",
         "bamboo": "Bambus",
+        "tree": "Baum",
+        "snake_plant": "Bogenhanf",
+        "bonsai": "Bonsai",
+        "chili": "Chili",
+        "pothos": "Efeutute",
         "peace_lily": "Einblatt",
+        "strawberry": "Erdbeere",
+        "fern": "Farn",
+        "zz_plant": "Glücksfeder",
+        "cucumber": "Gurke",
+        "hedge": "Hecke",
+        "blueberry": "Heidelbeere",
+        "potato": "Kartoffel",
         "calathea": "Korbmarante",
-        "venus_flytrap": "Venusfliegenfalle",
-        "air_plant": "Tillandsie (Luftpflanze)",
+        "herb": "Kräuter",
         "lavender": "Lavendel",
+        "monstera": "Monstera",
+        "orchid": "Orchidee",
+        "pepper": "Paprika",
+        "lawn": "Rasen",
+        "rose": "Rose",
         "rosemary": "Rosmarin",
-        "chili": "Chili"
+        "lettuce": "Salat",
+        "succulent": "Sukkulente / Kaktus",
+        "air_plant": "Tillandsie (Luftpflanze)",
+        "tomato": "Tomate",
+        "venus_flytrap": "Venusfliegenfalle",
+        "yucca": "Yucca",
+        "palm": "Zimmerpalme",
+        "houseplant": "Zimmerpflanze",
+        "citrus": "Zitruspflanze",
+        "zucchini": "Zucchini"
       }
     }
   },
@@ -116,6 +116,12 @@
       },
       "water_needed": {
         "name": "Benötigtes Wasser"
+      },
+      "days_until_min": {
+        "name": "Tage bis zur Mindestfeuchtigkeit"
+      },
+      "days_until_min_weather": {
+        "name": "Tage bis zur Mindestfeuchtigkeit (Wettervorhersage)"
       }
     },
     "binary_sensor": {
