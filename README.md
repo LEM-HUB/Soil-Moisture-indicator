@@ -77,7 +77,7 @@ Pro Einrichtung entstehen ein Gerät, zehn Sensoren und zwei Binärsensoren:
 | `sensor.<name>_tage_bis_zur_mindestfeuchtigkeit` | Tage | Tage bis zum unteren Rand des Optimalbereichs nach dem linearen Modell |
 | `sensor.<name>_tage_bis_zur_mindestfeuchtigkeit_wettervorhersage` | Tage | Tage bis zum unteren Rand inklusive Wettervorhersage |
 | `binary_sensor.<name>_giessen_noetig` | – | `on`, sobald die Feuchte unter den Optimalbereich fällt |
-| `binary_sensor.<name>_sensordaten_veraltet` | – | `on`, wenn der Quellsensor länger als 30 Minuten nichts liefert |
+| `binary_sensor.<name>_sensordaten_veraltet` | – | `on`, wenn der Quellsensor länger als 8 Stunden nichts liefert |
 
 Die Entity-IDs leiten sich aus dem vergebenen Namen und der Sprache der
 Instanz ab; die Tabelle zeigt die deutschen IDs.
@@ -275,7 +275,8 @@ steht der Sensor auf `0`; ohne Volumen bleibt er `unknown`.
 ### Diagnose
 
 `binary_sensor.<name>_sensordaten_veraltet` wird `on`, wenn der Quellsensor
-länger als 30 Minuten nicht aktualisiert wurde oder das Update fehlschlägt.
+länger als 8 Stunden (480 Minuten) nicht aktualisiert wurde oder das Update
+fehlschlägt.
 Das Attribut `data_age_minutes` nennt das Alter der letzten Messung,
 `source_battery` den Batteriestand des Sensors, falls er einen meldet.
 

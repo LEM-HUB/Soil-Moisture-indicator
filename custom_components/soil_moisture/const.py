@@ -11,7 +11,7 @@ from dataclasses import dataclass
 DOMAIN = "soil_moisture"
 NAME = "Soil Moisture Indicator"
 MANUFACTURER = "Soil Moisture Indicator"
-VERSION = "1.3.4"
+VERSION = "1.3.5"
 
 CONF_SOURCE_ENTITY = "source_entity"
 CONF_PLANT_TYPE = "plant_type"
@@ -36,7 +36,8 @@ WATERING_JUMP_PERCENT = 5.0
 WATERING_MAX_GAP_MINUTES = 30
 
 # The source sensor counts as stale when it did not report for this long.
-STALE_AFTER_MINUTES = 30
+# Eight hours keeps slow sensors from raising the diagnostic flag over night.
+STALE_AFTER_MINUTES = 480
 DEFAULT_PREDICTION_HORIZON = 12.0
 DEFAULT_HISTORY_HOURS = 24.0
 DEFAULT_UPDATE_INTERVAL_MINUTES = 5

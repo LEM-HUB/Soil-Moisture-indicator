@@ -105,7 +105,7 @@ class SoilMoistureWateringRequiredSensor(_SoilMoistureBinaryBase):
 
 
 class SoilMoistureDataStaleSensor(_SoilMoistureBinaryBase):
-    """On when the source sensor stopped reporting."""
+    """On when the source sensor has not reported for more than eight hours."""
 
     _attr_device_class = BinarySensorDeviceClass.PROBLEM
     _attr_entity_category = EntityCategory.DIAGNOSTIC
