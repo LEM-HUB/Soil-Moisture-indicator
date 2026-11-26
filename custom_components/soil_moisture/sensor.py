@@ -111,6 +111,7 @@ class SoilMoistureCurrentSensor(_SoilMoistureBase):
         attributes: dict[str, Any] = {
             "source_entity": self.coordinator.source_entity,
             "plant_type": self.coordinator.plant_type,
+            "sensor_type": self.coordinator.sensor_type,
             "optimal_min": profile.optimal_min,
             "optimal_max": profile.optimal_max,
             "moisture_status": data.status,
@@ -332,6 +333,7 @@ class SoilMoistureOptimalSensor(_SoilMoistureBase):
         profile = self.coordinator.profile
         return {
             "plant_type": self.coordinator.plant_type,
+            "sensor_type": self.coordinator.sensor_type,
             "optimal_min": profile.optimal_min,
             "optimal_max": profile.optimal_max,
             "current_moisture": data.current,

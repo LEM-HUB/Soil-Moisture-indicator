@@ -7,6 +7,7 @@
         "data": {
           "source_entity": "Soil moisture sensor",
           "plant_type": "Plant type",
+          "sensor_type": "Sensor type",
           "weather_entity": "Weather entity",
           "name": "Name",
           "container_volume": "Container volume"
@@ -14,6 +15,7 @@
         "data_description": {
           "source_entity": "Sensor that reports the current soil moisture in %.",
           "plant_type": "Determines the optimal moisture range.",
+          "sensor_type": "Capacitive sensors measure the dielectric constant, resistive sensors the conductivity. A resistive sensor reports a few percentage points wetter for the same soil, so the optimal range is set lower.",
           "weather_entity": "Optional weather entity for the weather based 7 day forecast. Leave empty to use the only weather entity of your instance.",
           "name": "Optional name, for example 'Tomatoes greenhouse'.",
           "container_volume": "Substrate volume in litres, used to calculate the watering amount. 0 disables the amount sensor."
@@ -34,6 +36,7 @@
         "description": "Settings for {source_entity}.",
         "data": {
           "plant_type": "Plant type",
+          "sensor_type": "Sensor type",
           "prediction_horizon": "Prediction horizon",
           "history_hours": "History window",
           "weather_entity": "Weather entity",
@@ -41,6 +44,7 @@
         },
         "data_description": {
           "plant_type": "Determines the optimal moisture range.",
+          "sensor_type": "Capacitive or resistive. A resistive sensor reports wetter for the same soil, so the optimal range is 8 percentage points lower.",
           "prediction_horizon": "How many hours into the future the prediction sensor looks.",
           "history_hours": "How much past data is used to fit the moisture trend.",
           "weather_entity": "Used for the weather based 7 day forecast. Empty means the only weather entity of your instance.",
@@ -88,6 +92,12 @@
         "houseplant": "Houseplant",
         "citrus": "Citrus",
         "zucchini": "Zucchini"
+      }
+    },
+    "sensor_type": {
+      "options": {
+        "capacitive": "Capacitive",
+        "resistive": "Resistive"
       }
     }
   },

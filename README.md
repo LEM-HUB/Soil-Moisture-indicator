@@ -21,6 +21,10 @@ jeweiligen Pflanzentyp** als Sensor bereitstellt.
   meldet per Binärsensor, wann gegossen werden muss bzw. Daten fehlen.
 - Stellt den Optimalbereich je Pflanzentyp bereit (36 Profile, von Tomate bis
   Aloe Vera).
+- Unterscheidet **kapazitive und resistive Sensoren** und verschiebt den
+  Optimalbereich passend zum Sensortyp.
+- Enthält zwei fertige Lovelace-Karten (Verlauf der letzten 5 Tage inklusive
+  nächstem Gießtermin, Gauge mit grünem Optimalbereich).
 - Läuft komplett lokal, ohne Cloud und ohne zusätzliche Abhängigkeiten.
 
 ## Installation
@@ -31,6 +35,11 @@ jeweiligen Pflanzentyp** als Sensor bereitstellt.
 2. `https://github.com/LEM-HUB/Soil-Moisture-indicator` als Kategorie
    *Integration* hinzufügen.
 3. „Soil Moisture Indicator" installieren und Home Assistant neu starten.
+
+Solange das Repository nicht in der Standardliste von HACS steht, ist der
+Eintrag als *Benutzerdefiniertes Repository* nötig. Die Aufnahme ist vorbereitet
+(Brand-Assets, Releases, `hacs.json`), aber noch nicht eingereicht – siehe
+[Veröffentlichung](#veröffentlichung).
 
 ### Manuell
 
@@ -44,19 +53,20 @@ starten.
    „Soil Moisture Indicator".
 2. Bodenfeuchtesensor auswählen.
 3. Pflanzentyp wählen (bestimmt den Optimalbereich).
-4. Optional eine Wetterentität für die wetterbasierte 7-Tage-Vorhersage
+4. Sensortyp wählen: *Kapazitiv* (Standard) oder *Resistiv*.
+5. Optional eine Wetterentität für die wetterbasierte 7-Tage-Vorhersage
    wählen. Ohne Auswahl wird die einzige Wetterentität der Instanz genutzt.
-5. Optional das Substratvolumen in Litern eintragen (z. B. 5 für einen 5-l-Topf).
+6. Optional das Substratvolumen in Litern eintragen (z. B. 5 für einen 5-l-Topf).
    Daraus berechnet die Integration die nötige Gießmenge; `0` schaltet die
    Mengenangabe ab.
-6. Optional einen Namen vergeben (z. B. „Tomaten Gewächshaus").
+7. Optional einen Namen vergeben (z. B. „Tomaten Gewächshaus").
 
 Nach dem Anlegen steht der Eintrag in der Integrationsliste unter
 „Soil Moisture Indicator“ – nicht im Tab *Helfer*, weil die Integration als
 `integration_type: device` gemeldet ist. Das erzeugte Gerät trägt den oben
 vergebenen Namen.
 
-Über *Konfigurieren* an der Integration lassen sich Pflanzentyp,
+Über *Konfigurieren* an der Integration lassen sich Pflanzentyp, Sensortyp,
 Vorhersagehorizont (1–72 h), Historienfenster (2–168 h) und Substratvolumen
 jederzeit ändern.
 
@@ -94,6 +104,7 @@ Die Zustände der Binärsensoren sind intern `on`/`off`. Angezeigt werden
 | Attribut | Beschreibung |
 | --- | --- |
 | `source_entity` | Ausgewerteter Sensor |
+| `sensor_type` | `capacitive` oder `resistive` |
 | `current_moisture` | Aktueller Messwert |
 | `prediction_horizon_hours` | Horizont der Vorhersage |
 | `history_hours` | Verwendetes Historienfenster |
@@ -114,7 +125,8 @@ Die Zustände der Binärsensoren sind intern `on`/`off`. Angezeigt werden
 | Attribut | Beschreibung |
 | --- | --- |
 | `plant_type` | Gewählter Pflanzentyp |
-| `optimal_min` / `optimal_max` | Unter- und Obergrenze in % |
+| `sensor_type` | `capacitive` oder `resistive` – Sensortyp, auf den die Grenzen abgestimmt sind |
+| `optimal_min` / `optimal_max` | Unter- und Obergrenze in % (bereits auf den Sensortyp angepasst) |
 | `current_moisture` | Aktueller Messwert |
 | `moisture_status` | Aktueller Zustand relativ zum Optimalbereich |
 
@@ -187,9 +199,32 @@ tatsächlich aus der Vorhersage stammen.
 | Rosmarin | 25–45 |
 | Chili | 55–70 |
 
-Die Bereiche sind Richtwerte für kapazitive/resistive Sensoren, die 0 % (trocken)
-bis 100 % (gesättigt) liefern. Sie liegen in `custom_components/soil_moisture/const.py`
-und lassen sich dort leicht an den eigenen Sensor anpassen.
+Die Bereiche sind Richtwerte für kapazitive Sensoren, die 0 % (trocken) bis
+100 % (gesättigt) liefern. Sie liegen in
+`custom_components/soil_moisture/const.py` und lassen sich dort leicht an den
+eigenen Sensor anpassen.
+
+## Sensortyp
+
+In Einrichtung und Optionen lässt sich der Sensortyp wählen:
+
+| Sensortyp | Verhalten | Anpassung des Optimalbereichs |
+| --- | --- | --- |
+| `capacitive` (Standard) | misst die Dielektrizitätskonstante des Substrats, linear und driftarm | keine |
+| `resistive` | misst den Leitwert zwischen zwei Elektroden, reagiert auf Wasser **und** Salze und sättigt im nassen Bereich | −8 Prozentpunkte |
+
+Für dasselbe Substrat meldet ein resistiver Sensor einige Prozentpunkte
+feuchter als ein kapazitiver. Damit die Pflanzenprofile weiter stimmen, wird
+ihr Optimalbereich beim resistiven Sensor um 8 Prozentpunkte nach unten
+verschoben (Konstante `SENSOR_TYPE_THRESHOLD_OFFSET`). Alle daraus abgeleiteten
+Schwellen wandern automatisch mit: `giessen_noetig`, die Tage bis zur
+Mindestfeuchtigkeit, die Wassermenge und `optimal_min`/`optimal_max` in den
+Attributen. Aus 40–60 % (Zimmerpflanze) werden so 32–52 %.
+
+Der Bereich wird nie schmaler als 15 Prozentpunkte und nie außerhalb 0–100 %.
+Bestehende Einträge gelten weiter als kapazitiv, solange nichts anderes gewählt
+ist. Wer die Rohwerte seines Sensors vorher per Template auf 0–100 % umrechnet,
+sollte bei *Kapazitiv* bleiben.
 
 ### Attribute der Vorhersagesensoren
 
@@ -337,6 +372,91 @@ entities:
     name: Gießen in (h)
 ```
 
+## Dashboard-Karten
+
+Zwei fertige Karten liegen in
+[`dashboards/soil_moisture_cards.yaml`](dashboards/soil_moisture_cards.yaml).
+Entity-IDs an die eigene Einrichtung anpassen (`sensor.<name>_…`).
+
+### Verlauf der letzten 5 Tage mit nächstem Gießtermin
+
+`history-graph` zeigt 120 Stunden Feuchte und Optimalwert; die Markdown-Karte
+darunter rechnet aus `days_until_min_weather` das konkrete Datum der nächsten
+Wässerung und nennt zusätzlich den linearen Termin.
+
+```yaml
+type: vertical-stack
+cards:
+  - type: history-graph
+    title: Bodenfeuchte – letzte 5 Tage
+    hours_to_show: 120
+    refresh_interval: 60
+    entities:
+      - entity: sensor.vera_aktuelle_feuchtigkeit
+        name: Aktuell
+      - entity: sensor.vera_optimale_feuchtigkeit
+        name: Optimal
+  - type: markdown
+    content: |
+      {% set current = states('sensor.vera_aktuelle_feuchtigkeit') %}
+      {% set min = state_attr('sensor.vera_aktuelle_feuchtigkeit', 'optimal_min') %}
+      {% set weather = states('sensor.vera_tage_bis_zur_mindestfeuchtigkeit_wettervorhersage') %}
+      {% set linear = states('sensor.vera_tage_bis_zur_mindestfeuchtigkeit') %}
+
+      **Aktuell:** {{ current }} % · Optimalbereich ab {{ min }} %
+
+      {% if is_number(weather) and weather | float > 0 %}
+      **Nächste Wässerung:** {{ (as_timestamp(now()) + weather | float * 86400) | timestamp_custom('%d.%m.%Y, %H:%M') }} · in {{ weather }} Tagen (mit Wettervorhersage)
+      {% elif is_number(weather) %}
+      **Nächste Wässerung:** jetzt – die Mindestfeuchtigkeit ist erreicht
+      {% else %}
+      **Nächste Wässerung:** nicht absehbar, der Trend fällt nicht
+      {% endif %}
+```
+
+### Gauge mit grünem Optimalbereich
+
+Die Karte nutzt `segments` (nur mit `needle: true`), damit der Optimalbereich
+grün und alles darüber/darunter gelb bzw. rot erscheint. Die Grenzen 40 und 60
+gehören zur Zimmerpflanze; für eine andere Pflanze `optimal_min` und
+`optimal_max` aus den Attributen von `sensor.<name>_aktuelle_feuchtigkeit`
+einsetzen.
+
+```yaml
+type: gauge
+entity: sensor.vera_aktuelle_feuchtigkeit
+name: Bodenfeuchte
+needle: true
+min: 0
+max: 100
+segments:
+  - from: 0
+    color: '#d32f2f'
+  - from: 30
+    color: '#f9a825'
+  - from: 40
+    color: '#2e7d32'
+  - from: 60
+    color: '#f9a825'
+  - from: 75
+    color: '#d32f2f'
+```
+
+## Veröffentlichung
+
+- **Version:** `custom_components/soil_moisture/manifest.json` und `VERSION` in
+  `const.py` tragen dieselbe Nummer. Ist sie neu, erzeugt
+  `.github/workflows/release.yml` beim Push auf `main` automatisch den Tag
+  `v<version>` und ein GitHub-Release mit generierten Notizen.
+- **Changelog:** [`CHANGELOG.md`](CHANGELOG.md).
+- **Brand-Assets:** `custom_components/soil_moisture/brand/icon.png` (256×256)
+  und `logo.png` (512×512); Home Assistant nutzt sie ab 2026 direkt aus der
+  Integration.
+- **Standard-Repository von HACS:** noch offen. Dafür muss das Repository
+  öffentlich sein, Releases und Brand-Assets enthalten und in
+  `hacs/default` unter `integration` eingetragen werden (Pull Request mit dem
+  Repo-Namen in alphabetischer Reihenfolge).
+
 ## Fehlerbehebung
 
 - **Sensoren bleiben `unavailable`:** Der Quellsensor liefert keinen numerischen
@@ -347,7 +467,9 @@ entities:
   Nach einigen Messungen erscheint eine echte Vorhersage.
 - **Einheit prüfen:** Die Integration erwartet Prozentwerte. Liefert der Sensor
   Rohwerte (z. B. 0–4095), vorher mit einem Template-Sensor auf 0–100 %
-  umrechnen.
+  umrechnen und den Sensortyp auf *Kapazitiv* lassen.
+- **Alles wirkt zu nass:** Bei einem resistiven Sensor den Sensortyp auf
+  *Resistiv* stellen – dann liegt der Optimalbereich 8 Prozentpunkte tiefer.
 - **Recorder deaktiviert:** Ohne Recorder startet die Vorhersage leer und füllt
   sich ab dem Start der Integration.
 
@@ -375,7 +497,12 @@ custom_components/soil_moisture/
   weather.py       Wettermodell für die Trocknung (HA-frei)
   sensor.py        Feuchte-, Vorhersage-, Optimal- und Gießmengen-Sensor
   binary_sensor.py Gießen nötig und Diagnose
+  brand/           icon.png und logo.png für Home Assistant
   manifest.json
   strings.json
   translations/    en, de
+
+dashboards/         fertige Lovelace-Karten
+.github/           Release-Workflow
+CHANGELOG.md
 ```

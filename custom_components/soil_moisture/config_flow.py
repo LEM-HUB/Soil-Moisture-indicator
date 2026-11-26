@@ -21,11 +21,13 @@ from .const import (
     CONF_HISTORY_HOURS,
     CONF_PLANT_TYPE,
     CONF_PREDICTION_HORIZON,
+    CONF_SENSOR_TYPE,
     CONF_SOURCE_ENTITY,
     DEFAULT_CONTAINER_VOLUME,
     DEFAULT_HISTORY_HOURS,
     DEFAULT_PLANT_TYPE,
     DEFAULT_PREDICTION_HORIZON,
+    DEFAULT_SENSOR_TYPE,
     CONF_WEATHER_ENTITY,
     DOMAIN,
     MAX_CONTAINER_VOLUME,
@@ -35,6 +37,7 @@ from .const import (
     MIN_HISTORY_HOURS,
     MIN_PREDICTION_HORIZON,
     PLANT_TYPES,
+    SENSOR_TYPES,
 )
 
 
@@ -44,6 +47,16 @@ def _plant_type_selector() -> selector.SelectSelector:
             options=PLANT_TYPES,
             mode=selector.SelectSelectorMode.DROPDOWN,
             translation_key=CONF_PLANT_TYPE,
+        )
+    )
+
+
+def _sensor_type_selector() -> selector.SelectSelector:
+    return selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=SENSOR_TYPES,
+            mode=selector.SelectSelectorMode.DROPDOWN,
+            translation_key=CONF_SENSOR_TYPE,
         )
     )
 
@@ -127,6 +140,9 @@ class SoilMoistureConfigFlow(ConfigFlow, domain=DOMAIN):
                 vol.Required(
                     CONF_PLANT_TYPE, default=DEFAULT_PLANT_TYPE
                 ): _plant_type_selector(),
+                vol.Required(
+                    CONF_SENSOR_TYPE, default=DEFAULT_SENSOR_TYPE
+                ): _sensor_type_selector(),
                 vol.Optional(CONF_WEATHER_ENTITY): _weather_selector(),
                 vol.Optional(
                     CONF_CONTAINER_VOLUME, default=DEFAULT_CONTAINER_VOLUME
@@ -166,6 +182,10 @@ class SoilMoistureOptionsFlow(OptionsFlow):
             CONF_PREDICTION_HORIZON, DEFAULT_PREDICTION_HORIZON
         )
         history_hours = entry.options.get(CONF_HISTORY_HOURS, DEFAULT_HISTORY_HOURS)
+        sensor_type = entry.options.get(
+            CONF_SENSOR_TYPE,
+            entry.data.get(CONF_SENSOR_TYPE, DEFAULT_SENSOR_TYPE),
+        )
         weather_entity = entry.options.get(
             CONF_WEATHER_ENTITY, entry.data.get(CONF_WEATHER_ENTITY)
         )
@@ -186,6 +206,9 @@ class SoilMoistureOptionsFlow(OptionsFlow):
                 vol.Required(
                     CONF_PLANT_TYPE, default=plant_type
                 ): _plant_type_selector(),
+                vol.Required(
+                    CONF_SENSOR_TYPE, default=sensor_type
+                ): _sensor_type_selector(),
                 vol.Required(
                     CONF_PREDICTION_HORIZON, default=horizon
                 ): selector.NumberSelector(

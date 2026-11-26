@@ -1,0 +1,64 @@
+# Zwei Lovelace-Karten für den Bodenfeuchte-Indikator, als zwei YAML-Dokumente
+# (durch "---" getrennt). Jedes Dokument ist eine Karte zum Kopieren.
+# Die Entity-IDs sind Beispiele für ein Gerät namens "Vera"; an die eigene
+# Einrichtung anpassen (sensor.<name>_aktuelle_feuchtigkeit usw.).
+
+# ---------------------------------------------------------------------------
+# Karte 1: Verlauf der letzten 5 Tage mit dem Datum der nächsten Wässerung
+# ---------------------------------------------------------------------------
+type: vertical-stack
+cards:
+  - type: history-graph
+    title: Bodenfeuchte – letzte 5 Tage
+    hours_to_show: 120
+    refresh_interval: 60
+    entities:
+      - entity: sensor.vera_aktuelle_feuchtigkeit
+        name: Aktuell
+      - entity: sensor.vera_optimale_feuchtigkeit
+        name: Optimal
+  - type: markdown
+    content: |
+      {% set current = states('sensor.vera_aktuelle_feuchtigkeit') %}
+      {% set min = state_attr('sensor.vera_aktuelle_feuchtigkeit', 'optimal_min') %}
+      {% set weather = states('sensor.vera_tage_bis_zur_mindestfeuchtigkeit_wettervorhersage') %}
+      {% set linear = states('sensor.vera_tage_bis_zur_mindestfeuchtigkeit') %}
+
+      **Aktuell:** {{ current }} % · Optimalbereich ab {{ min }} %
+
+      {% if is_number(weather) and weather | float > 0 %}
+      **Nächste Wässerung:** {{ (as_timestamp(now()) + weather | float * 86400) | timestamp_custom('%d.%m.%Y, %H:%M') }} · in {{ weather }} Tagen (mit Wettervorhersage)
+      {% elif is_number(weather) %}
+      **Nächste Wässerung:** jetzt – die Mindestfeuchtigkeit ist erreicht
+      {% else %}
+      **Nächste Wässerung:** nicht absehbar, der Trend fällt nicht
+      {% endif %}
+
+      {% if is_number(linear) and linear | float > 0 %}
+      Ohne Wetterfaktor: {{ (as_timestamp(now()) + linear | float * 86400) | timestamp_custom('%d.%m.%Y') }} · in {{ linear }} Tagen
+      {% endif %}
+
+---
+# ---------------------------------------------------------------------------
+# Karte 2: Gauge mit grünem Optimalbereich der Pflanze
+# Die Grenzen 40 / 60 sind der Optimalbereich einer Zimmerpflanze. Die Werte
+# für die eigene Pflanze stehen als Attribute `optimal_min` und `optimal_max`
+# an sensor.<name>_aktuelle_feuchtigkeit.
+# ---------------------------------------------------------------------------
+type: gauge
+entity: sensor.vera_aktuelle_feuchtigkeit
+name: Bodenfeuchte
+needle: true
+min: 0
+max: 100
+segments:
+  - from: 0
+    color: '#d32f2f'
+  - from: 30
+    color: '#f9a825'
+  - from: 40
+    color: '#2e7d32'
+  - from: 60
+    color: '#f9a825'
+  - from: 75
+    color: '#d32f2f'

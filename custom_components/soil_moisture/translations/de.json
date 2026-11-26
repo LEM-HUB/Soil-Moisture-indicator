@@ -7,6 +7,7 @@
         "data": {
           "source_entity": "Bodenfeuchtesensor",
           "plant_type": "Pflanzentyp",
+          "sensor_type": "Sensortyp",
           "weather_entity": "Wetterentität",
           "name": "Name",
           "container_volume": "Substratvolumen"
@@ -14,6 +15,7 @@
         "data_description": {
           "source_entity": "Sensor, der die aktuelle Bodenfeuchte in % liefert.",
           "plant_type": "Bestimmt den optimalen Feuchtigkeitsbereich.",
+          "sensor_type": "Kapazitive Sensoren messen über die Dielektrizitätskonstante, resistive über den Leitwert. Resistive Sensoren melden für dasselbe Substrat einige Prozentpunkte feuchter, deshalb wird der Optimalbereich entsprechend tiefer angesetzt.",
           "weather_entity": "Optionale Wetterentität für die Wettervorhersage über 7 Tage. Leer lassen, um die einzige Wetterentität der Instanz zu verwenden.",
           "name": "Optionaler Name, zum Beispiel 'Tomaten Gewächshaus'.",
           "container_volume": "Volumen des Substrats in Litern. Wird für die Berechnung der Gießmenge genutzt; 0 deaktiviert die Mengenangabe."
@@ -34,6 +36,7 @@
         "description": "Einstellungen für {source_entity}.",
         "data": {
           "plant_type": "Pflanzentyp",
+          "sensor_type": "Sensortyp",
           "prediction_horizon": "Vorhersagehorizont",
           "history_hours": "Historienfenster",
           "weather_entity": "Wetterentität",
@@ -41,6 +44,7 @@
         },
         "data_description": {
           "plant_type": "Bestimmt den optimalen Feuchtigkeitsbereich.",
+          "sensor_type": "Kapazitiv oder resistiv. Ein resistiver Sensor meldet für dasselbe Substrat feuchter, deshalb liegt der Optimalbereich um 8 Prozentpunkte tiefer.",
           "prediction_horizon": "Wie viele Stunden in die Zukunft der Vorhersagesensor schaut.",
           "history_hours": "Wie viele Stunden Vergangenheit für den Feuchtigkeitstrend verwendet werden.",
           "weather_entity": "Wird für die Wettervorhersage über 7 Tage genutzt. Leer bedeutet: die einzige Wetterentität der Instanz.",
@@ -88,6 +92,12 @@
         "houseplant": "Zimmerpflanze",
         "citrus": "Zitruspflanze",
         "zucchini": "Zucchini"
+      }
+    },
+    "sensor_type": {
+      "options": {
+        "capacitive": "Kapazitiv",
+        "resistive": "Resistiv"
       }
     }
   },

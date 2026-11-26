@@ -75,6 +75,39 @@ def test_plant_types_are_sorted_alphabetically():
     )
 
 
+def test_calibrate_profile_capacitive_is_unchanged():
+    profile = const.get_plant_profile("houseplant")
+    assert const.calibrate_profile(profile, const.SENSOR_TYPE_CAPACITIVE) == profile
+
+
+def test_calibrate_profile_shifts_resistive_thresholds():
+    profile = const.get_plant_profile("tomato")
+    calibrated = const.calibrate_profile(profile, const.SENSOR_TYPE_RESISTIVE)
+    assert calibrated.key == profile.key
+    assert calibrated.icon == profile.icon
+    assert calibrated.optimal_min == profile.optimal_min - 8
+    assert calibrated.optimal_max == profile.optimal_max - 8
+    assert calibrated.optimal_min <= calibrated.optimal_target
+    assert calibrated.optimal_target <= calibrated.optimal_max
+
+
+def test_resistive_shift_keeps_every_window_usable():
+    for key in const.PLANT_TYPES:
+        profile = const.get_plant_profile(key)
+        calibrated = const.calibrate_profile(profile, const.SENSOR_TYPE_RESISTIVE)
+        assert 0.0 <= calibrated.optimal_min < calibrated.optimal_max <= 100.0
+        assert (
+            calibrated.optimal_max - calibrated.optimal_min
+            >= const.MIN_OPTIMAL_RANGE_WIDTH - 0.05
+        )
+
+
+def test_unknown_sensor_type_falls_back_to_capacitive():
+    profile = const.get_plant_profile("rose")
+    assert const.sensor_type_or_default("nonsense") == const.DEFAULT_SENSOR_TYPE
+    assert const.calibrate_profile(profile, "nonsense") == profile
+
+
 def test_get_plant_profile_fallback():
     assert const.get_plant_profile("tomato").key == "tomato"
     assert const.get_plant_profile("does-not-exist").key == const.DEFAULT_PLANT_TYPE

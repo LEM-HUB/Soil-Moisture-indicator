@@ -11,7 +11,7 @@ from dataclasses import dataclass
 DOMAIN = "soil_moisture"
 NAME = "Soil Moisture Indicator"
 MANUFACTURER = "Soil Moisture Indicator"
-VERSION = "1.3.5"
+VERSION = "1.4.0"
 
 CONF_SOURCE_ENTITY = "source_entity"
 CONF_PLANT_TYPE = "plant_type"
@@ -20,6 +20,24 @@ CONF_PREDICTION_HORIZON = "prediction_horizon"
 CONF_HISTORY_HOURS = "history_hours"
 CONF_WEATHER_ENTITY = "weather_entity"
 CONF_CONTAINER_VOLUME = "container_volume"
+CONF_SENSOR_TYPE = "sensor_type"
+
+SENSOR_TYPE_CAPACITIVE = "capacitive"
+SENSOR_TYPE_RESISTIVE = "resistive"
+DEFAULT_SENSOR_TYPE = SENSOR_TYPE_CAPACITIVE
+SENSOR_TYPES: list[str] = [SENSOR_TYPE_CAPACITIVE, SENSOR_TYPE_RESISTIVE]
+
+# A resistive sensor measures the conductivity between two electrodes, which
+# rises with the water and salt content of the substrate. For the same soil it
+# therefore reports a few percentage points wetter than a capacitive sensor,
+# so its optimal window is shifted down by this many percentage points.
+SENSOR_TYPE_THRESHOLD_OFFSET: dict[str, float] = {
+    SENSOR_TYPE_CAPACITIVE: 0.0,
+    SENSOR_TYPE_RESISTIVE: -8.0,
+}
+
+# Do not shrink the optimal window below this width when shifting it.
+MIN_OPTIMAL_RANGE_WIDTH = 15.0
 
 DEFAULT_PLANT_TYPE = "houseplant"
 DEFAULT_CONTAINER_VOLUME = 0.0
@@ -170,3 +188,29 @@ def get_plant_profile(key: str | None) -> PlantProfile:
     if key and key in PLANT_PROFILES:
         return PLANT_PROFILES[key]
     return PLANT_PROFILES[DEFAULT_PLANT_TYPE]
+
+
+def sensor_type_or_default(value: str | None) -> str:
+    """Return ``value`` if it is a known sensor type, else the default."""
+    return value if value in SENSOR_TYPES else DEFAULT_SENSOR_TYPE
+
+
+def calibrate_profile(profile: PlantProfile, sensor_type: str | None) -> PlantProfile:
+    """Adjust the optimal range of ``profile`` to the given sensor type."""
+    offset = SENSOR_TYPE_THRESHOLD_OFFSET.get(
+        sensor_type_or_default(sensor_type), 0.0
+    )
+    if offset == 0.0:
+        return profile
+    optimal_min = max(0.0, round(profile.optimal_min + offset, 1))
+    optimal_max = min(100.0, round(profile.optimal_max + offset, 1))
+    if optimal_max - optimal_min < MIN_OPTIMAL_RANGE_WIDTH:
+        optimal_max = min(
+            100.0, round(optimal_min + MIN_OPTIMAL_RANGE_WIDTH, 1)
+        )
+    return PlantProfile(
+        key=profile.key,
+        optimal_min=optimal_min,
+        optimal_max=optimal_max,
+        icon=profile.icon,
+    )

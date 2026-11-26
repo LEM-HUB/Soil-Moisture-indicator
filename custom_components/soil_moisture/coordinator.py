@@ -21,12 +21,14 @@ from .const import (
     CONF_HISTORY_HOURS,
     CONF_PLANT_TYPE,
     CONF_PREDICTION_HORIZON,
+    CONF_SENSOR_TYPE,
     CONF_SOURCE_ENTITY,
     CONF_WEATHER_ENTITY,
     DEFAULT_CONTAINER_VOLUME,
     DEFAULT_HISTORY_HOURS,
     DEFAULT_PLANT_TYPE,
     DEFAULT_PREDICTION_HORIZON,
+    DEFAULT_SENSOR_TYPE,
     DEFAULT_UPDATE_INTERVAL_MINUTES,
     DOMAIN,
     FORECAST_SENSORS,
@@ -43,7 +45,9 @@ from .const import (
     PlantProfile,
     WEATHER_FORECAST_CACHE_MINUTES,
     WEATHER_FORECAST_DAYS,
+    calibrate_profile,
     get_plant_profile,
+    sensor_type_or_default,
 )
 from .predict import (
     MoistureTrend,
@@ -216,9 +220,19 @@ class SoilMoistureCoordinator(DataUpdateCoordinator[SoilMoistureData]):
         )
 
     @property
+    def sensor_type(self) -> str:
+        """Configured sensor type: capacitive or resistive."""
+        return sensor_type_or_default(
+            self.entry.options.get(
+                CONF_SENSOR_TYPE,
+                self.entry.data.get(CONF_SENSOR_TYPE, DEFAULT_SENSOR_TYPE),
+            )
+        )
+
+    @property
     def profile(self) -> PlantProfile:
-        """Optimal moisture profile for the configured plant type."""
-        return get_plant_profile(self.plant_type)
+        """Optimal moisture profile, adjusted to the configured sensor type."""
+        return calibrate_profile(get_plant_profile(self.plant_type), self.sensor_type)
 
     @property
     def weather_entity(self) -> str | None:
