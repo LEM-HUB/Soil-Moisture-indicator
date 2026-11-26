@@ -187,7 +187,7 @@ Wie die Faktoren im Einzelnen entstehen, steht in
 | `days` | Immer `7.0` |
 | `basis` | `weather_forecast` |
 | `weather_entity` | Ausgewertete Wetterentität |
-| `forecast_days_used` | Von der Vorhersage abgedeckte Tage (bei Stundendaten `Länge / 24`, aufgerundet, höchstens 7) |
+| `forecast_days_used` | Abgedeckte Tage der Vorhersage (Stunden ÷ 24 bzw. Anzahl Tage, höchstens 7, eine Nachkommastelle) |
 | `forecast_kind` | `hourly` oder `daily` |
 | `forecast_error` | Grund, falls keine Vorhersage vorliegt (`no_weather_entity`, `multiple_weather_entities`, `empty_forecast`, `service_error: …`) |
 | `current_moisture` | Ausgangswert |
@@ -308,10 +308,11 @@ anteil = (wert_vor_schritt − schwelle) / (wert_vor_schritt − wert_nach_schri
 stunden = vergangene_schritte + anteil × schrittweite
 ```
 
-Reicht die Vorhersage nicht bis zum Termin, rechnet die Integration danach mit
-der linearen Steigung weiter – der Sensor liefert also auch Termine jenseits von
-7 Tagen. Regen im Vorhersagezeitraum verschiebt den Termin nach hinten, kann
-ihn aber nicht über die Vorhersage hinaus „aufheben".
+Die Rechnung nutzt höchstens die ersten 7 Tage (168 h) der Vorhersage – dieselbe
+Grenze wie die 7-Tage-Prognose, damit beide Sensoren zusammenpassen. Danach
+rechnet sie mit der linearen Steigung weiter, sodass auch Termine jenseits der
+Vorhersage beantwortet werden. Regen im Vorhersagezeitraum verschiebt den Termin
+nach hinten.
 
 | Fall | Ergebnis |
 | --- | --- |
@@ -376,9 +377,7 @@ Nach einem Neustart kann der Sensor kurz `on` sein, bis die erste Auswertung
 durch ist.
 
 **Attribute:** `data_age_minutes`, `stale_after_minutes`, `source_entity`,
-`source_last_updated`, `source_battery`. Zusätzlich werden die Gieß-Attribute
-(`last_watering`, `minutes_since_watering`, `water_needed_ml`) mitgeführt, weil
-sich beide Binärsensoren einen gemeinsamen Attribut-Helfer teilen.
+`source_last_updated`, `source_battery`.
 
 ---
 
@@ -403,11 +402,11 @@ sich beide Binärsensoren einen gemeinsamen Attribut-Helfer teilen.
 | `weather_entity` | Wettersensoren | `str` |
 | `forecast_days_used`, `forecast_kind`, `forecast_error` | Wettersensoren | `int` / `str` |
 | `last_reading` | Aktuelle Feuchtigkeit, Vorhersage | ISO-Zeitstempel |
-| `last_watering`, `minutes_since_watering` | Aktuelle Feuchtigkeit, Gießen nötig, veraltet | ISO / `float` |
+| `last_watering`, `minutes_since_watering` | Aktuelle Feuchtigkeit, Gießen nötig | ISO / `float` |
 | `source_last_updated`, `source_battery` | Aktuelle Feuchtigkeit, veraltet | ISO / `float` |
 | `data_age_minutes`, `stale_after_minutes` | Sensordaten veraltet | `float` |
 | `container_volume_litres`, `water_needed_litres`, `target_moisture` | Benötigtes Wasser | `float` |
-| `water_needed_ml` | Gießen nötig, veraltet | `float` |
+| `water_needed_ml` | Gießen nötig | `float` |
 | `prediction_horizon_hours`, `history_hours` | Vorhersage | `float` |
 
 Fehlende Werte werden weggelassen, nicht als `null` ausgegeben: Ein Attribut

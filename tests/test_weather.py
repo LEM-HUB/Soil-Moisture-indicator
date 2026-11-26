@@ -222,3 +222,35 @@ def test_hours_until_min_hourly_forecast():
     assert weather.hours_until_min_with_hourly_forecast(
         50, -0.5, [rainy_hour] + [hour] * 40, 40
     ) == pytest.approx(24.0)
+
+
+def test_hours_until_min_ignores_forecast_beyond_the_projection():
+    mild = weather.DailyForecast(temperature=20, precipitation=0, cloud_coverage=0)
+    rainy = weather.DailyForecast(temperature=20, precipitation=5, cloud_coverage=0)
+    # 50 -> 33.2 % in seven dry days, then 3.2 pp at 2.4 pp/day. The rain of
+    # days 8-10 must not delay the crossing, because the projection stops at
+    # seven days as well.
+    assert weather.hours_until_min_with_forecast(
+        50, -0.1, [mild] * 7 + [rainy] * 3, 30
+    ) == pytest.approx(200.0)
+
+
+def test_hours_until_min_hourly_ignores_hours_beyond_the_projection():
+    mild = weather.HourlyForecast(temperature=20, cloud_coverage=0)
+    start = datetime(2026, 5, 8, tzinfo=timezone.utc)
+    rainy = weather.HourlyForecast(start=start, precipitation=5)
+    # 168 dry hours take 50 -> 33.2 %, the rainy hours after them are ignored.
+    assert weather.hours_until_min_with_hourly_forecast(
+        50, -0.1, [mild] * 168 + [rainy] * 72, 30
+    ) == pytest.approx(200.0)
+
+
+def test_flat_trend_never_reaches_the_threshold():
+    mild = weather.DailyForecast(temperature=20, cloud_coverage=0)
+    hour = weather.HourlyForecast(temperature=20, cloud_coverage=0)
+    # -0.01 %/h counts as stable, exactly like FLAT_SLOPE in predict.py.
+    assert weather.hours_until_min_with_forecast(50, -0.01, [mild] * 7, 40) is None
+    assert (
+        weather.hours_until_min_with_hourly_forecast(50, -0.01, [hour] * 168, 40)
+        is None
+    )

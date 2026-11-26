@@ -5,6 +5,31 @@ Nennenswerte Änderungen an dieser Integration. Die Version steht in
 neuen Version erzeugt automatisch Tag und GitHub-Release (siehe
 `.github/workflows/release.yml`).
 
+## 1.4.1
+
+### Behoben
+
+- Wetterbasierter Gießtermin und 7-Tage-Prognose nutzen jetzt dieselben ersten
+  7 Tage Vorhersage; danach rechnet der Termin linear weiter. Vorher konnte der
+  Termin bei längeren Vorhersagen von der Prognose abweichen.
+- Gieß-Erkennung beim ersten Start: Die Recorder-Historie wird vor der
+  Erkennung geladen und auf Messungen vor dem aktuellen Wert beschnitten. Ein
+  Gießen direkt vor einem Neustart wird dadurch erkannt und der Trend sauber
+  neu gestartet, statt mit Vor-Gieß-Werten weiterzurechnen.
+- Ein Trend zwischen −0,05 und 0 %/h gilt auch im Wettermodell als stabil,
+  passend zur linearen Terminrechnung.
+- `forecast_days_used` nennt die tatsächlich abgedeckten Tage (Stunden ÷ 24,
+  höchstens 7) statt aufgerundeter Tage.
+- `prediction_horizon` fällt wie die übrigen Optionen auf die Daten der
+  Einrichtung zurück.
+- Diagnosesensor „Sensordaten veraltet“ führt keine Gieß-Attribute mehr mit.
+- Toter Code (`hourly_change`) und eine ungenutzte Variable entfernt.
+
+### Dokumentation
+
+- README als Einstieg neu strukturiert; Sensor- und Berechnungsdetails stehen
+  jetzt in `docs/sensoren.md` und `docs/berechnungsgrundlagen.md`.
+
 ## 1.4.0
 
 ### Hinzugefügt

@@ -87,6 +87,11 @@ Ein sehr langsames Gießen (Tropfbewässerung) löst die Erkennung nicht aus, we
 der Sprung unter 5 Prozentpunkten bleibt. Dann geht das Gießen als Anstieg in
 den Trend ein und die Prognose beruhigt sich entsprechend langsamer.
 
+Beim ersten Durchlauf nach einem Neustart wird die Recorder-Historie vor der
+Erkennung geladen und dabei auf Messungen **vor** dem aktuellen Wert beschnitten
+– der Recorder enthält den aktuellen Wert bereits selbst. So wird ein Gießen
+direkt vor dem Neustart erkannt und der Trend mit dem neuen Wert neu gestartet.
+
 ## 4. Lineare Projektion
 
 Alle Vorhersagen ohne Wetter rechnen mit derselben Formel:
@@ -189,8 +194,9 @@ anteil  = (wert_vorher − schwelle) / (wert_vorher − wert_nachher)
 stunden = vergangene_schritte + anteil × schrittweite     (1 h bzw. 24 h)
 ```
 
-Danach wird mit dem linearen Trend weitergezählt, falls die Vorhersage vorher
-endet. Voraussetzungen: `current > optimal_min` und eine fallende Steigung;
+Genutzt werden höchstens die ersten 7 Tage (168 h) der Vorhersage, dieselbe
+Grenze wie bei der 7-Tage-Prognose; danach zählt die lineare Steigung weiter.
+Voraussetzungen: `current > optimal_min` und eine fallende Steigung;
 sonst ist das Ergebnis `0.0` bzw. `unknown`. Der Termin wird nur berechnet, wenn
 auch der lineare Termin existiert – so sind beide Sensoren immer vergleichbar.
 

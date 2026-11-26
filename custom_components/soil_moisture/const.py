@@ -11,7 +11,7 @@ from dataclasses import dataclass
 DOMAIN = "soil_moisture"
 NAME = "Soil Moisture Indicator"
 MANUFACTURER = "Soil Moisture Indicator"
-VERSION = "1.4.0"
+VERSION = "1.4.1"
 
 CONF_SOURCE_ENTITY = "source_entity"
 CONF_PLANT_TYPE = "plant_type"

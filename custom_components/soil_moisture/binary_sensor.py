@@ -143,7 +143,6 @@ class SoilMoistureDataStaleSensor(_SoilMoistureBinaryBase):
             "data_age_minutes": self._age_minutes,
             "stale_after_minutes": STALE_AFTER_MINUTES,
             "source_entity": self.coordinator.source_entity,
-            **_watering_attributes(data),
         }
         if data.source_last_updated is not None:
             attributes["source_last_updated"] = data.source_last_updated.isoformat(

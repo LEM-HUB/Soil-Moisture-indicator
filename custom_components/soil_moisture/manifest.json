@@ -8,5 +8,5 @@
   "after_dependencies": ["recorder"],
   "integration_type": "device",
   "iot_class": "calculated",
-  "version": "1.4.0"
+  "version": "1.4.1"
 }

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import math
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -269,7 +268,10 @@ class SoilMoistureCoordinator(DataUpdateCoordinator[SoilMoistureData]):
         """Hours into the future the prediction sensor looks."""
         return _as_number(
             self.entry.options.get(
-                CONF_PREDICTION_HORIZON, DEFAULT_PREDICTION_HORIZON
+                CONF_PREDICTION_HORIZON,
+                self.entry.data.get(
+                    CONF_PREDICTION_HORIZON, DEFAULT_PREDICTION_HORIZON
+                ),
             ),
             DEFAULT_PREDICTION_HORIZON,
             MIN_PREDICTION_HORIZON,
@@ -300,13 +302,21 @@ class SoilMoistureCoordinator(DataUpdateCoordinator[SoilMoistureData]):
             )
 
         now = dt_util.utcnow()
-        self._detect_watering(current, now)
-        self._samples.append((now.timestamp(), current))
 
         if not self._history_loaded:
-            self._samples.extend(await self._async_history_samples())
+            # The recorder already holds the current reading; keep only the ones
+            # before it so the watering detection still sees the value from
+            # before the jump after a restart.
+            current_since = state.last_updated.timestamp()
+            self._samples.extend(
+                sample
+                for sample in await self._async_history_samples()
+                if sample[0] < current_since
+            )
             self._history_loaded = True
 
+        self._detect_watering(current, now)
+        self._samples.append((now.timestamp(), current))
         self._prune_samples(now.timestamp())
 
         samples = sorted(self._samples)
@@ -339,8 +349,7 @@ class SoilMoistureCoordinator(DataUpdateCoordinator[SoilMoistureData]):
                 1,
             )
             weather_days = min(
-                int(math.ceil(len(forecast_hours) / 24)),
-                int(WEATHER_FORECAST_DAYS),
+                round(len(forecast_hours) / 24, 1), WEATHER_FORECAST_DAYS
             )
         elif forecast_days_list:
             weather_forecast = round(
@@ -349,7 +358,9 @@ class SoilMoistureCoordinator(DataUpdateCoordinator[SoilMoistureData]):
                 ),
                 1,
             )
-            weather_days = min(len(forecast_days_list), int(WEATHER_FORECAST_DAYS))
+            weather_days = min(
+                float(len(forecast_days_list)), WEATHER_FORECAST_DAYS
+            )
         else:
             weather_forecast = None
             weather_days = 0
@@ -361,11 +372,19 @@ class SoilMoistureCoordinator(DataUpdateCoordinator[SoilMoistureData]):
         if hours_until_min is not None:
             if forecast_hours:
                 weather_hours_until_min = hours_until_min_with_hourly_forecast(
-                    current, slope, forecast_hours, profile.optimal_min
+                    current,
+                    slope,
+                    forecast_hours,
+                    profile.optimal_min,
+                    WEATHER_FORECAST_DAYS,
                 )
             elif forecast_days_list:
                 weather_hours_until_min = hours_until_min_with_forecast(
-                    current, slope, forecast_days_list, profile.optimal_min
+                    current,
+                    slope,
+                    forecast_days_list,
+                    profile.optimal_min,
+                    WEATHER_FORECAST_DAYS,
                 )
         days_until_min_weather = (
             None

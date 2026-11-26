@@ -288,7 +288,6 @@ class SoilMoisturePredictionSensor(_SoilMoistureBase):
     def extra_state_attributes(self) -> dict[str, Any]:
         """Expose the trend details behind the prediction."""
         data = self._data or SoilMoistureData()
-        trend = data.trend
         attributes: dict[str, Any] = {
             "source_entity": self.coordinator.source_entity,
             "current_moisture": data.current,

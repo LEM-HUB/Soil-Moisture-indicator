@@ -22,7 +22,7 @@ ohne zusätzliche Abhängigkeiten.
 - **36 Pflanzenprofile** und **zwei Sensortypen** (kapazitiv/resistiv).
 - **Zwei fertige Lovelace-Karten** (Verlauf, Gauge).
 
-Aktuelle Version: **1.4.0** (siehe [CHANGELOG.md](CHANGELOG.md)).
+Aktuelle Version: **1.4.1** (siehe [CHANGELOG.md](CHANGELOG.md)).
 
 ## Datenfluss
 

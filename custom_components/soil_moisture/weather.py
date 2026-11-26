@@ -14,6 +14,14 @@ from typing import Sequence
 MIN_MOISTURE = 0.0
 MAX_MOISTURE = 100.0
 
+# The forecast based helpers use at most this much of a forecast; beyond it the
+# plain linear trend takes over. Matches WEATHER_FORECAST_DAYS in const.py.
+MAX_FORECAST_DAYS = 7.0
+
+# Slopes above this (in percentage points per hour) count as "not drying",
+# matching FLAT_SLOPE in predict.py.
+FLAT_SLOPE = 0.05
+
 # Drying is referenced to a 20 °C day without clouds and scales with both.
 TEMP_REFERENCE_C = 20.0
 TEMP_FACTOR_PER_C = 0.03
@@ -184,11 +192,6 @@ def daily_change(slope_per_hour: float, day: DailyForecast) -> float:
     return drying + rain_gain(day.precipitation)
 
 
-def hourly_change(slope_per_hour: float, hour: HourlyForecast) -> float:
-    """Net moisture change in percentage points for one forecast hour."""
-    return slope_per_hour * hour_factor(hour) + rain_gain(hour.precipitation)
-
-
 def project_linear(current: float, slope_per_hour: float, days: float) -> float:
     """Extrapolate linear drying ``days`` into the future, clamped to 0–100 %."""
     return _clamp_moisture(current + slope_per_hour * 24 * days)
@@ -271,21 +274,23 @@ def hours_until_min_with_forecast(
     slope_per_hour: float,
     forecast: Sequence[DailyForecast],
     threshold: float,
+    days: float = MAX_FORECAST_DAYS,
 ) -> float | None:
     """Return the hours until the daily forecast dries the soil to ``threshold``.
 
     ``0.0`` means the threshold is already reached and ``None`` means the trend
-    is not drying out. Once the forecast runs out the plain linear trend
-    continues, so a date beyond the forecast range is still answered.
+    is not drying out. Only the first ``days`` forecast days are used, matching
+    the projection range; after that the plain linear trend continues, so a
+    date beyond the forecast range is still answered.
     """
     if current <= threshold:
         return 0.0
-    if slope_per_hour >= 0:
+    if slope_per_hour > -FLAT_SLOPE:
         return None
 
     value = current
     elapsed = 0.0
-    for day in forecast:
+    for day in forecast[: max(1, math.ceil(days))]:
         delta = daily_change(slope_per_hour, day)
         fraction = _crossing_fraction(value, delta, threshold)
         if fraction is not None:
@@ -301,25 +306,29 @@ def hours_until_min_with_hourly_forecast(
     slope_per_hour: float,
     hours: Sequence[HourlyForecast],
     threshold: float,
+    days: float = MAX_FORECAST_DAYS,
 ) -> float | None:
     """Return the hours until the hourly forecast dries the soil to ``threshold``.
 
     Every forecast entry counts as one hour, matching
     :func:`project_with_hourly_forecast`. The rain gain is capped per calendar
-    day there as well. ``0.0`` means the threshold is already reached, ``None``
-    means the trend is not drying out; past the forecast the linear trend
-    continues.
+    day there as well, and only the first ``days`` days of the forecast are
+    used. ``0.0`` means the threshold is already reached, ``None`` means the
+    trend is not drying out; past the forecast the linear trend continues.
     """
     if current <= threshold:
         return 0.0
-    if slope_per_hour >= 0:
+    if slope_per_hour > -FLAT_SLOPE:
         return None
 
+    limit_hours = max(1, int(round(days * 24)))
     value = current
     elapsed = 0.0
     rain_by_day: dict[date, float] = {}
 
     for hour in hours:
+        if elapsed >= limit_hours:
+            break
         rain = 0.0
         if (
             hour.precipitation is not None
